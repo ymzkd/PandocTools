@@ -1,0 +1,337 @@
+\subsection{アプリ概要}\label{ux30a2ux30d7ux30eaux6982ux8981}
+
+\begin{itemize}
+\item
+  \textbf{名称（仮）}：Pandoc GUI Converter
+\item
+  \textbf{目的}：Windows 上で Markdown ファイルを選択し、pypandoc 経由で PDF（HTML/DOCX も可）に変換するシンプルなデスクトップ GUI アプリケーション。
+\item
+  \textbf{特徴}：
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Rust製のパッケージ管理ツール \textbf{uv} で依存パッケージ・Pythonバージョン・仮想環境を一元管理し、環境構築を爆速化 ({[}gihyo.jp{]}{[}1{]})。
+  \item
+    PyQt6 による直感的な UI（ファイル選択、オプション設定、ログ表示）を提供。
+  \item
+    Pandoc の全オプションを透過的に指定できる \texttt{extra\_args} 編集機能。
+  \item
+    \texttt{QProcess} を用いた非同期起動で UI をブロックしない。
+  \end{itemize}
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{要件}\label{ux8981ux4ef6}
+
+\subsubsection{機能要件}\label{ux6a5fux80fdux8981ux4ef6}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{入力管理}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Markdown ファイル／フォルダの選択ダイアログ
+  \item
+    ドラッグ＆ドロップによるファイル追加対応
+  \end{itemize}
+\item
+  \textbf{出力形式選択}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    プルダウンで「pdf」「html」「docx」等を選択
+  \end{itemize}
+\item
+  \textbf{オプション設定}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    チェックボックス・テキスト欄で Pandoc オプション（\texttt{-\/-wrap=preserve}、\texttt{-\/-lua-filter}、\texttt{-\/-pdf-engine=xelatex}、\texttt{-V\ documentclass=…}、\texttt{-\/-from\ markdown+hard\_line\_breaks} 等）を編集
+  \end{itemize}
+\item
+  \textbf{プロファイル管理}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    YAML 形式での保存／読み込み
+  \item
+    インストール先直下の \texttt{profiles/} フォルダに配置
+  \end{itemize}
+\item
+  \textbf{変換実行}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    \texttt{QProcess} で Pandoc CLI を非同期起動し、標準出力／標準エラーをリアルタイム表示
+  \item
+    終了時に「出力先を開く」ボタンを有効化
+  \end{itemize}
+\item
+  \textbf{ログ永続化}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    不要（ファイル保存なし）
+  \end{itemize}
+\end{enumerate}
+
+\subsubsection{非機能要件}\label{ux975eux6a5fux80fdux8981ux4ef6}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{プラットフォーム}：Windows のみ対応（将来的にクロスプラットフォーム化検討）
+\item
+  \textbf{仮想環境管理}：uv を利用し、一貫して依存・Python バージョン・仮想環境を管理 ({[}gihyo.jp{]}{[}1{]})。
+\item
+  \textbf{言語}：日本語 UI 固定
+\item
+  \textbf{軽量性}：依存は最小限（PyQt6, pypandoc, pyyaml, uv）
+\item
+  \textbf{拡張性}：後日自動更新機能や多言語対応を追加可能な設計
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{実装に必要な情報}\label{ux5b9fux88c5ux306bux5fc5ux8981ux306aux60c5ux5831}
+
+\subsubsection{1. 環境セットアップ（uv 活用）}\label{ux74b0ux5883ux30bbux30c3ux30c8ux30a2ux30c3ux30d7uv-ux6d3bux7528}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{uv のインストール}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# システムに pip があれば}
+\NormalTok{pip install uv}
+\end{Highlighting}
+\end{Shaded}
+
+  Rust 製で極めて高速な pip 代替およびプロジェクト管理ツール ({[}gihyo.jp{]}{[}1{]})。
+\item
+  \textbf{プロジェクト初期化}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{uv init pandoc{-}gui}
+\FunctionTok{cd}\NormalTok{ pandoc{-}gui}
+\end{Highlighting}
+\end{Shaded}
+
+  \texttt{pyproject.toml} 等のひな形が生成される ({[}speakerdeck.com{]}{[}2{]})。
+\item
+  \textbf{仮想環境の作成}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{uv venv}
+\end{Highlighting}
+\end{Shaded}
+
+  デフォルトで \texttt{.venv} フォルダを 0.02 秒程度で作成 ({[}gihyo.jp{]}{[}1{]})。
+\item
+  \textbf{仮想環境のアクティベート}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\OperatorTok{.}\NormalTok{\textbackslash{}}\OperatorTok{.}\FunctionTok{venv}\NormalTok{\textbackslash{}Scripts\textbackslash{}Activate}\OperatorTok{.}\FunctionTok{ps1}
+\end{Highlighting}
+\end{Shaded}
+
+  （PowerShell）Windows 環境でも通常の venv と同様に有効化可能 ({[}gihyo.jp{]}{[}1{]})。
+\item
+  \textbf{依存パッケージのインストール}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{uv pip install PyQt6 pypandoc pyyaml}
+\end{Highlighting}
+\end{Shaded}
+
+  \texttt{uv\ pip} コマンドは従来の \texttt{pip\ install} より高速・確実にパッケージを解決・インストール ({[}gihyo.jp{]}{[}1{]})。
+\end{enumerate}
+
+\subsubsection{2. ディレクトリ構成例}\label{ux30c7ux30a3ux30ecux30afux30c8ux30eaux69cbux6210ux4f8b}
+
+\begin{verbatim}
+pandoc-gui/                      ← uv init で生成されたルート
+├─ .venv/                        ← uv venv による仮想環境
+├─ profiles/                     ← YAML プロファイル保存 (例: default.yml)
+├─ src/
+│   ├─ main.py                   ← アプリ起動／UI初期化
+│   ├─ ui_main.py                ← Qt Designer 生成 or 手書き UI 定義
+│   ├─ pandoc_process.py         ← QProcess を使った非同期 Pandoc 実行
+│   ├─ config.py                 ← YAML プロファイル読み書きロジック
+│   └─ resources/                ← アイコン等リソース
+├─ pyproject.toml                ← uv init 生成
+├─ README.md
+└─ requirements.txt              ← uv pip freeze 出力（任意）
+\end{verbatim}
+
+\subsubsection{3. 主なコード例}\label{ux4e3bux306aux30b3ux30fcux30c9ux4f8b}
+
+\paragraph{\texorpdfstring{\texttt{config.py}（YAML プロファイル管理）}{config.py（YAML プロファイル管理）}}\label{config.pyyaml-ux30d7ux30edux30d5ux30a1ux30a4ux30ebux7ba1ux7406}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\ImportTok{import}\NormalTok{ yaml}
+\ImportTok{from}\NormalTok{ pathlib }\ImportTok{import}\NormalTok{ Path}
+\ImportTok{import}\NormalTok{ sys}
+
+\NormalTok{BASE\_DIR }\OperatorTok{=}\NormalTok{ Path(sys.argv[}\DecValTok{0}\NormalTok{]).resolve().parent}
+\NormalTok{PROFILE\_DIR }\OperatorTok{=}\NormalTok{ BASE\_DIR }\OperatorTok{/} \StringTok{\textquotesingle{}profiles\textquotesingle{}}
+\NormalTok{PROFILE\_DIR.mkdir(exist\_ok}\OperatorTok{=}\VariableTok{True}\NormalTok{)}
+
+\KeywordTok{def}\NormalTok{ load\_profile(name: }\BuiltInTok{str}\NormalTok{) }\OperatorTok{{-}\textgreater{}} \BuiltInTok{dict}\NormalTok{:}
+    \ControlFlowTok{with} \BuiltInTok{open}\NormalTok{(PROFILE\_DIR }\OperatorTok{/} \SpecialStringTok{f\textquotesingle{}}\SpecialCharTok{\{}\NormalTok{name}\SpecialCharTok{\}}\SpecialStringTok{.yml\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}r\textquotesingle{}}\NormalTok{, encoding}\OperatorTok{=}\StringTok{\textquotesingle{}utf{-}8\textquotesingle{}}\NormalTok{) }\ImportTok{as}\NormalTok{ f:}
+        \ControlFlowTok{return}\NormalTok{ yaml.safe\_load(f)}
+
+\KeywordTok{def}\NormalTok{ save\_profile(name: }\BuiltInTok{str}\NormalTok{, data: }\BuiltInTok{dict}\NormalTok{):}
+    \ControlFlowTok{with} \BuiltInTok{open}\NormalTok{(PROFILE\_DIR }\OperatorTok{/} \SpecialStringTok{f\textquotesingle{}}\SpecialCharTok{\{}\NormalTok{name}\SpecialCharTok{\}}\SpecialStringTok{.yml\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}w\textquotesingle{}}\NormalTok{, encoding}\OperatorTok{=}\StringTok{\textquotesingle{}utf{-}8\textquotesingle{}}\NormalTok{) }\ImportTok{as}\NormalTok{ f:}
+\NormalTok{        yaml.safe\_dump(data, f, allow\_unicode}\OperatorTok{=}\VariableTok{True}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\paragraph{\texorpdfstring{\texttt{pandoc\_process.py}（QProcess で非同期 Pandoc 実行）}{pandoc\_process.py（QProcess で非同期 Pandoc 実行）}}\label{pandoc_process.pyqprocess-ux3067ux975eux540cux671f-pandoc-ux5b9fux884c}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\ImportTok{from}\NormalTok{ PyQt6.QtCore }\ImportTok{import}\NormalTok{ QObject, QProcess, pyqtSignal}
+
+\KeywordTok{class}\NormalTok{ PandocWorker(QObject):}
+\NormalTok{    stdout\_received }\OperatorTok{=}\NormalTok{ pyqtSignal(}\BuiltInTok{str}\NormalTok{)}
+\NormalTok{    stderr\_received }\OperatorTok{=}\NormalTok{ pyqtSignal(}\BuiltInTok{str}\NormalTok{)}
+\NormalTok{    finished }\OperatorTok{=}\NormalTok{ pyqtSignal(}\BuiltInTok{int}\NormalTok{)}
+
+    \KeywordTok{def} \FunctionTok{\_\_init\_\_}\NormalTok{(}\VariableTok{self}\NormalTok{, parent}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+        \BuiltInTok{super}\NormalTok{().}\FunctionTok{\_\_init\_\_}\NormalTok{(parent)}
+        \VariableTok{self}\NormalTok{.proc }\OperatorTok{=}\NormalTok{ QProcess(}\VariableTok{self}\NormalTok{)}
+        \VariableTok{self}\NormalTok{.proc.readyReadStandardOutput.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.\_on\_stdout)}
+        \VariableTok{self}\NormalTok{.proc.readyReadStandardError.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.\_on\_stderr)}
+        \VariableTok{self}\NormalTok{.proc.finished.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.\_on\_finished)}
+
+    \KeywordTok{def}\NormalTok{ run(}\VariableTok{self}\NormalTok{, input\_md: }\BuiltInTok{str}\NormalTok{, output\_file: }\BuiltInTok{str}\NormalTok{, extra\_args: }\BuiltInTok{list}\NormalTok{[}\BuiltInTok{str}\NormalTok{]):}
+\NormalTok{        cmd }\OperatorTok{=}\NormalTok{ [}\StringTok{\textquotesingle{}pandoc\textquotesingle{}}\NormalTok{, input\_md, }\StringTok{\textquotesingle{}{-}o\textquotesingle{}}\NormalTok{, output\_file] }\OperatorTok{+}\NormalTok{ extra\_args}
+        \VariableTok{self}\NormalTok{.proc.start(cmd[}\DecValTok{0}\NormalTok{], cmd[}\DecValTok{1}\NormalTok{:])}
+
+    \KeywordTok{def}\NormalTok{ \_on\_stdout(}\VariableTok{self}\NormalTok{):}
+        \VariableTok{self}\NormalTok{.stdout\_received.emit(}\BuiltInTok{bytes}\NormalTok{(}\VariableTok{self}\NormalTok{.proc.readAllStandardOutput()).decode())}
+
+    \KeywordTok{def}\NormalTok{ \_on\_stderr(}\VariableTok{self}\NormalTok{):}
+        \VariableTok{self}\NormalTok{.stderr\_received.emit(}\BuiltInTok{bytes}\NormalTok{(}\VariableTok{self}\NormalTok{.proc.readAllStandardError()).decode())}
+
+    \KeywordTok{def}\NormalTok{ \_on\_finished(}\VariableTok{self}\NormalTok{, exit\_code: }\BuiltInTok{int}\NormalTok{, \_status):}
+        \VariableTok{self}\NormalTok{.finished.emit(exit\_code)}
+\end{Highlighting}
+\end{Shaded}
+
+\paragraph{\texorpdfstring{\texttt{main.py}（UI と連携）}{main.py（UI と連携）}}\label{main.pyui-ux3068ux9023ux643a}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\ImportTok{import}\NormalTok{ sys}
+\ImportTok{from}\NormalTok{ PyQt6.QtWidgets }\ImportTok{import}\NormalTok{ QApplication, QMainWindow, QFileDialog}
+\ImportTok{from}\NormalTok{ ui\_main }\ImportTok{import}\NormalTok{ Ui\_MainWindow}
+\ImportTok{from}\NormalTok{ pandoc\_process }\ImportTok{import}\NormalTok{ PandocWorker}
+\ImportTok{from}\NormalTok{ config }\ImportTok{import}\NormalTok{ load\_profile, save\_profile}
+
+\KeywordTok{class}\NormalTok{ MainWindow(QMainWindow):}
+    \KeywordTok{def} \FunctionTok{\_\_init\_\_}\NormalTok{(}\VariableTok{self}\NormalTok{):}
+        \BuiltInTok{super}\NormalTok{().}\FunctionTok{\_\_init\_\_}\NormalTok{()}
+        \VariableTok{self}\NormalTok{.ui }\OperatorTok{=}\NormalTok{ Ui\_MainWindow()}
+        \VariableTok{self}\NormalTok{.ui.setupUi(}\VariableTok{self}\NormalTok{)}
+
+        \VariableTok{self}\NormalTok{.worker }\OperatorTok{=}\NormalTok{ PandocWorker()}
+        \VariableTok{self}\NormalTok{.worker.stdout\_received.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.ui.appendLog)}
+        \VariableTok{self}\NormalTok{.worker.stderr\_received.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.ui.appendLog)}
+        \VariableTok{self}\NormalTok{.worker.finished.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.onFinished)}
+
+        \VariableTok{self}\NormalTok{.ui.btnSelectInput.clicked.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.selectInput)}
+        \VariableTok{self}\NormalTok{.ui.btnRun.clicked.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.startConversion)}
+        \VariableTok{self}\NormalTok{.ui.btnSaveProfile.clicked.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.saveCurrentProfile)}
+        \VariableTok{self}\NormalTok{.ui.btnLoadProfile.clicked.}\ExtensionTok{connect}\NormalTok{(}\VariableTok{self}\NormalTok{.loadProfile)}
+
+    \KeywordTok{def}\NormalTok{ selectInput(}\VariableTok{self}\NormalTok{):}
+\NormalTok{        path, \_ }\OperatorTok{=}\NormalTok{ QFileDialog.getOpenFileName(}\VariableTok{self}\NormalTok{, }\StringTok{"Markdown を選択"}\NormalTok{, }\StringTok{""}\NormalTok{, }\StringTok{"Markdown (*.md)"}\NormalTok{)}
+        \ControlFlowTok{if}\NormalTok{ path:}
+            \VariableTok{self}\NormalTok{.ui.inputPath.setText(path)}
+
+    \KeywordTok{def}\NormalTok{ startConversion(}\VariableTok{self}\NormalTok{):}
+\NormalTok{        in\_md }\OperatorTok{=} \VariableTok{self}\NormalTok{.ui.inputPath.text()}
+\NormalTok{        out\_file }\OperatorTok{=} \VariableTok{self}\NormalTok{.ui.outputPath.text()}
+\NormalTok{        args }\OperatorTok{=} \VariableTok{self}\NormalTok{.ui.collectExtraArgs()}
+        \VariableTok{self}\NormalTok{.worker.run(in\_md, out\_file, args)}
+
+    \KeywordTok{def}\NormalTok{ onFinished(}\VariableTok{self}\NormalTok{, code):}
+        \ControlFlowTok{if}\NormalTok{ code }\OperatorTok{==} \DecValTok{0}\NormalTok{:}
+            \VariableTok{self}\NormalTok{.ui.enableOpenOutput(}\VariableTok{True}\NormalTok{)}
+
+    \KeywordTok{def}\NormalTok{ saveCurrentProfile(}\VariableTok{self}\NormalTok{):}
+\NormalTok{        name }\OperatorTok{=} \VariableTok{self}\NormalTok{.ui.profileName.text()}
+\NormalTok{        data }\OperatorTok{=}\NormalTok{ \{}
+            \StringTok{"output\_format"}\NormalTok{: }\VariableTok{self}\NormalTok{.ui.outputFormat.currentText(),}
+            \StringTok{"extra\_args"}\NormalTok{: }\VariableTok{self}\NormalTok{.ui.collectExtraArgs()}
+\NormalTok{        \}}
+\NormalTok{        save\_profile(name, data)}
+
+    \KeywordTok{def}\NormalTok{ loadProfile(}\VariableTok{self}\NormalTok{):}
+\NormalTok{        name }\OperatorTok{=} \VariableTok{self}\NormalTok{.ui.profileSelect.currentText()}
+\NormalTok{        data }\OperatorTok{=}\NormalTok{ load\_profile(name)}
+        \CommentTok{\# UI に data を反映する実装を追加}
+
+\ControlFlowTok{if} \VariableTok{\_\_name\_\_} \OperatorTok{==} \StringTok{\textquotesingle{}\_\_main\_\_\textquotesingle{}}\NormalTok{:}
+\NormalTok{    app }\OperatorTok{=}\NormalTok{ QApplication(sys.argv)}
+\NormalTok{    win }\OperatorTok{=}\NormalTok{ MainWindow()}
+\NormalTok{    win.show()}
+\NormalTok{    sys.exit(app.}\BuiltInTok{exec}\NormalTok{())}
+\end{Highlighting}
+\end{Shaded}
+
+\subsubsection{4. プロファイル YAML 例}\label{ux30d7ux30edux30d5ux30a1ux30a4ux30eb-yaml-ux4f8b}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{output\_format}\KeywordTok{:}\AttributeTok{ pdf}
+\FunctionTok{extra\_args}\KeywordTok{:}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ {-}{-}wrap=preserve}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ {-}{-}lua{-}filter=strip\_math\_blocks.lua}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ {-}{-}pdf{-}engine=xelatex}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ {-}V}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ documentclass=bxjsarticle}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ {-}V}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ classoption=pandoc}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ {-}{-}from}
+\AttributeTok{  }\KeywordTok{{-}}\AttributeTok{ markdown+hard\_line\_breaks}
+\end{Highlighting}
+\end{Shaded}
+
+\subsubsection{5. ビルド \& 配布（Windows 向け）}\label{ux30d3ux30ebux30c9-ux914dux5e03windows-ux5411ux3051}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{uv pip install pyinstaller}
+\NormalTok{pyinstaller \textasciigrave{}}
+  \OperatorTok{{-}{-}}\NormalTok{name pandoc{-}gui \textasciigrave{}}
+  \OperatorTok{{-}{-}}\NormalTok{onefile \textasciigrave{}}
+  \OperatorTok{{-}{-}}\NormalTok{add{-}data }\StringTok{"profiles;profiles"}\NormalTok{ \textasciigrave{}}
+\NormalTok{  src}\OperatorTok{/}\NormalTok{main}\OperatorTok{.}\FunctionTok{py}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{itemize}
+\tightlist
+\item
+  生成された \texttt{dist/pandoc-gui.exe} を配布先に配置するだけで動作 ({[}js2iiu.com{]}{[}3{]})。
+\end{itemize}

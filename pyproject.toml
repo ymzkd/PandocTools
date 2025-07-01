@@ -1,0 +1,23 @@
+[project]
+name = "pandoc-gui"
+version = "0.1.0"
+description = "Windows GUI application for Pandoc conversion"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyQt6>=6.6.0",
+    "pypandoc>=1.12",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+pandoc-gui = "src.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pyinstaller>=6.0.0",
+] 
