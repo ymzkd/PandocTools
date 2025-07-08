@@ -4,6 +4,7 @@ Pandoc GUI Converter - メインアプリケーション
 import sys
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import List, Dict, Any
 from PyQt6.QtWidgets import (
@@ -11,7 +12,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem
 )
 from PyQt6.QtCore import QTimer, pyqtSignal
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QCloseEvent
 
 from ui_main import Ui_MainWindow
 from pandoc_process import PandocWorker
@@ -32,6 +33,9 @@ class MainWindow(QMainWindow):
         self.worker.stderr_received.connect(self.append_log)
         self.worker.finished.connect(self.on_conversion_finished)
         self.worker.started.connect(self.on_conversion_started)
+        
+        # 一時ファイル管理
+        self.temp_header_file = None
         
         # イベント接続
         self._connect_events()
@@ -293,6 +297,20 @@ class MainWindow(QMainWindow):
         # 追加引数を収集
         extra_args = self.collect_extra_args()
         
+        # LaTeX行列の最大列数設定を動的に追加
+        max_matrix_cols = self.ui.max_matrix_cols.value()
+        if max_matrix_cols > 0:
+            # 一時ファイルを作成してLaTeXコマンドを書き込む
+            try:
+                self.temp_header_file = tempfile.NamedTemporaryFile(mode='w', suffix='.tex', delete=False)
+                self.temp_header_file.write(f"\\setcounter{{MaxMatrixCols}}{{{max_matrix_cols}}}\n")
+                self.temp_header_file.close()
+                extra_args.extend(["--include-in-header", self.temp_header_file.name])
+                self.append_log(f"LaTeX行列最大列数を {max_matrix_cols} に設定しました\n")
+            except Exception as e:
+                self.append_log(f"一時ファイルの作成に失敗しました: {e}\n")
+                self.temp_header_file = None
+        
         # 変換開始
         if len(input_files) == 1:
             # 単一ファイル変換
@@ -325,6 +343,16 @@ class MainWindow(QMainWindow):
         self.worker.terminate_process()
         self.append_log("変換を停止しました。\n")
         
+        # 一時ファイルを削除
+        if self.temp_header_file:
+            try:
+                os.unlink(self.temp_header_file.name)
+                self.append_log("一時ファイルを削除しました\n")
+            except Exception as e:
+                self.append_log(f"一時ファイルの削除に失敗しました: {e}\n")
+            finally:
+                self.temp_header_file = None
+        
     def on_conversion_started(self):
         """変換開始時の処理"""
         self.ui.btn_run.setEnabled(False)
@@ -339,6 +367,16 @@ class MainWindow(QMainWindow):
         self.ui.btn_run.setEnabled(True)
         self.ui.btn_stop.setEnabled(False)
         self.ui.progress_bar.setVisible(False)
+        
+        # 一時ファイルを削除
+        if self.temp_header_file:
+            try:
+                os.unlink(self.temp_header_file.name)
+                self.append_log("一時ファイルを削除しました\n")
+            except Exception as e:
+                self.append_log(f"一時ファイルの削除に失敗しました: {e}\n")
+            finally:
+                self.temp_header_file = None
         
         if exit_code == 0:
             self.ui.btn_open_output.setEnabled(True)
@@ -468,6 +506,9 @@ class MainWindow(QMainWindow):
         self.ui.use_custom_filename.setChecked(profile_data.get('use_custom_filename', False))
         self.ui.output_filename.setText(profile_data.get('output_filename', ''))
         
+        # LaTeX行列の最大列数
+        self.ui.max_matrix_cols.setValue(profile_data.get('max_matrix_cols', 20))
+        
     def save_current_profile(self):
         """現在の設定をプロファイルとして保存"""
         profile_name = self.ui.profile_name.text().strip()
@@ -486,6 +527,7 @@ class MainWindow(QMainWindow):
             "merge_files": self.ui.merge_files.isChecked(),
             "use_custom_filename": self.ui.use_custom_filename.isChecked(),
             "output_filename": self.ui.output_filename.text().strip(),
+            "max_matrix_cols": self.ui.max_matrix_cols.value(),
         }
         
         if save_profile(profile_name, profile_data):
@@ -537,6 +579,23 @@ class MainWindow(QMainWindow):
                 item = QListWidgetItem(Path(file_path).name)
                 item.setData(256, file_path)
                 self.ui.file_list.addItem(item)
+    
+    def closeEvent(self, event: QCloseEvent):
+        """アプリケーション終了時の処理"""
+        # 一時ファイルを削除
+        if self.temp_header_file:
+            try:
+                os.unlink(self.temp_header_file.name)
+            except Exception:
+                pass  # 終了時はエラーを無視
+            finally:
+                self.temp_header_file = None
+        
+        # 実行中のプロセスを停止
+        if self.worker.proc.state() != self.worker.proc.ProcessState.NotRunning:
+            self.worker.terminate_process()
+            
+        super().closeEvent(event)
 
 
 def main():
