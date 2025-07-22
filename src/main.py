@@ -83,8 +83,13 @@ class MainWindow(QMainWindow):
         self.refresh_profiles()
         
         # デフォルトプロファイルを読み込み
-        default_profile = get_default_profile()
-        self.apply_profile_to_ui(default_profile)
+        try:
+            default_profile = load_profile("default")
+            self.apply_profile_to_ui(default_profile)
+        except Exception as e:
+            # default.ymlが存在しない場合はハードコーディングされたデフォルトを使用
+            default_profile = get_default_profile()
+            self.apply_profile_to_ui(default_profile)
         
         self.ui.statusbar.showMessage("準備完了 - Pandocが利用可能かご確認ください")
         
@@ -235,6 +240,36 @@ class MainWindow(QMainWindow):
         if class_opt:
             args.extend(["-V", f"classoption={class_opt}"])
             
+        # フォントサイズ
+        font_size = self.ui.font_size.currentText().strip()
+        if font_size:
+            args.extend(["-V", f"fontsize={font_size}"])
+            
+        # 用紙サイズ
+        paper_size = self.ui.paper_size.currentText().strip()
+        if paper_size:
+            args.extend(["-V", f"papersize={paper_size}"])
+            
+        # 余白設定（詳細）
+        margin_top = self.ui.margin_top.text().strip()
+        margin_bottom = self.ui.margin_bottom.text().strip()
+        margin_left = self.ui.margin_left.text().strip()
+        margin_right = self.ui.margin_right.text().strip()
+        
+        margin_parts = []
+        if margin_top:
+            margin_parts.append(f"top={margin_top}")
+        if margin_bottom:
+            margin_parts.append(f"bottom={margin_bottom}")
+        if margin_left:
+            margin_parts.append(f"left={margin_left}")
+        if margin_right:
+            margin_parts.append(f"right={margin_right}")
+        
+        if margin_parts:
+            args.extend(["-V", f"geometry:{','.join(margin_parts)}"])
+            
+        
         # Markdown拡張
         md_ext = self.ui.markdown_extensions.text().strip()
         if md_ext:
@@ -306,7 +341,7 @@ class MainWindow(QMainWindow):
                 self.temp_header_file.write(f"\\setcounter{{MaxMatrixCols}}{{{max_matrix_cols}}}\n")
                 self.temp_header_file.close()
                 extra_args.extend(["--include-in-header", self.temp_header_file.name])
-                self.append_log(f"LaTeX行列最大列数を {max_matrix_cols} に設定しました\n")
+                self.append_log(f"一時ファイルを作成しました: {self.temp_header_file.name}\n")
             except Exception as e:
                 self.append_log(f"一時ファイルの作成に失敗しました: {e}\n")
                 self.temp_header_file = None
@@ -462,36 +497,112 @@ class MainWindow(QMainWindow):
         self.ui.class_option.clear()
         self.ui.markdown_extensions.clear()
         
+        # 詳細マージン設定をリセット
+        self.ui.margin_top.clear()
+        self.ui.margin_bottom.clear()
+        self.ui.margin_left.clear()
+        self.ui.margin_right.clear()
+        
+        # コンボボックスをリセット
+        self.ui.font_size.setCurrentText("")
+        self.ui.paper_size.setCurrentText("")
+        
+        # カスタム引数フィールドをクリア
+        self.ui.custom_args.clear()
+        
         # 引数を解析してUIに設定
+        unprocessed_args = []  # 未処理の引数を収集
         i = 0
         while i < len(extra_args):
             arg = extra_args[i]
+            processed = False
             
             if arg == "--wrap=preserve":
                 self.ui.wrap_preserve.setChecked(True)
+                processed = True
             elif arg == "--toc":
                 self.ui.table_of_contents.setChecked(True)
+                processed = True
             elif arg == "--number-sections":
                 self.ui.number_sections.setChecked(True)
+                processed = True
             elif arg == "--standalone":
                 self.ui.standalone.setChecked(True)
+                processed = True
             elif arg.startswith("--pdf-engine="):
                 engine = arg.split("=", 1)[1]
                 index = self.ui.pdf_engine.findText(engine)
                 if index >= 0:
                     self.ui.pdf_engine.setCurrentIndex(index)
+                processed = True
             elif arg == "-V" and i + 1 < len(extra_args):
                 next_arg = extra_args[i + 1]
                 if next_arg.startswith("documentclass="):
                     self.ui.document_class.setText(next_arg.split("=", 1)[1])
+                    processed = True
                 elif next_arg.startswith("classoption="):
                     self.ui.class_option.setText(next_arg.split("=", 1)[1])
-                i += 1  # 次の引数もスキップ
+                    processed = True
+                elif next_arg.startswith("fontsize="):
+                    font_size = next_arg.split("=", 1)[1]
+                    index = self.ui.font_size.findText(font_size)
+                    if index >= 0:
+                        self.ui.font_size.setCurrentIndex(index)
+                    processed = True
+                elif next_arg.startswith("papersize="):
+                    paper_size = next_arg.split("=", 1)[1]
+                    index = self.ui.paper_size.findText(paper_size)
+                    if index >= 0:
+                        self.ui.paper_size.setCurrentIndex(index)
+                    processed = True
+                elif next_arg.startswith("geometry:"):
+                    geometry = next_arg.split(":", 1)[1]
+                    # geometry設定を解析して各余白フィールドに設定
+                    if geometry.startswith("margin="):
+                        # margin=15mm の場合は全マージンに同じ値を設定
+                        margin_value = geometry.split("=", 1)[1]
+                        self.ui.margin_top.setText(margin_value)
+                        self.ui.margin_bottom.setText(margin_value)
+                        self.ui.margin_left.setText(margin_value)
+                        self.ui.margin_right.setText(margin_value)
+                    else:
+                        # top=2cm,bottom=2cm,left=3cm,right=3cm の形式を解析
+                        geometry_parts = [part.strip() for part in geometry.split(',')]
+                        for part in geometry_parts:
+                            if '=' in part:
+                                key, value = part.split('=', 1)
+                                key = key.strip()
+                                value = value.strip()
+                                if key == 'top':
+                                    self.ui.margin_top.setText(value)
+                                elif key == 'bottom':
+                                    self.ui.margin_bottom.setText(value)
+                                elif key == 'left':
+                                    self.ui.margin_left.setText(value)
+                                elif key == 'right':
+                                    self.ui.margin_right.setText(value)
+                    processed = True
+                
+                if processed:
+                    i += 1  # 次の引数もスキップ
+                else:
+                    # 未処理の-Vオプション
+                    unprocessed_args.extend([arg, next_arg])
+                    i += 1
             elif arg == "--from" and i + 1 < len(extra_args):
                 self.ui.markdown_extensions.setText(extra_args[i + 1])
                 i += 1
+                processed = True
+            
+            if not processed:
+                unprocessed_args.append(arg)
                 
             i += 1
+            
+        # 未処理の引数をカスタム引数フィールドに設定
+        if unprocessed_args:
+            custom_args_text = '\n'.join(unprocessed_args)
+            self.ui.custom_args.setPlainText(custom_args_text)
             
         # ファイルパス系
         self.ui.lua_filter.setText(profile_data.get('lua_filter', ''))

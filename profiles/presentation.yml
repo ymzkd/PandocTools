@@ -1,0 +1,27 @@
+output_format: pdf
+extra_args:
+  - --wrap=preserve
+  - --pdf-engine=xelatex
+  - -V
+  - documentclass=bxjsarticle
+  - -V
+  - classoption=pandoc
+  - -V
+  - fontsize=14pt
+  - -V
+  - papersize=a4
+  - -V
+  - geometry:margin=25mm
+  - --toc
+  - --number-sections
+  - --from
+  - markdown+hard_line_breaks
+lua_filter: ""
+template: ""
+css_file: ""
+bibliography: ""
+merge_files: true
+use_custom_filename: false
+output_filename: ""
+max_matrix_cols: 20
+metadata: {}

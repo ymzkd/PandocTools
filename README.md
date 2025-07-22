@@ -131,12 +131,112 @@ pandoc chapter2.md -o chapter2.pdf --lua-filter=src/filters/default_filter.lua -
 
 **オプション設定**タブで以下を設定可能（縦スクロール対応）：
 - 基本オプション（PDFエンジン、ドキュメントクラス、Markdown拡張等）
+- LaTeX行列最大列数（12列以上の大きな行列を処理する場合に設定）
 - 追加Luaフィルター（内蔵のdefault_filter.luaは常時適用）
 - テンプレートファイル
 - CSSファイル (HTML出力用)
 - 参考文献ファイル
 - チェックボックスオプション（改行保持、目次生成等）
 - カスタムPandoc引数
+
+### LaTeX行列の最大列数設定
+
+LaTeXでは、デフォルトで行列の列数が10列に制限されています。12列以上の大きな行列を含むMarkdownファイルを変換する場合、以下の設定が必要です：
+
+**設定方法**:
+1. **オプション設定**タブの「LaTeX行列最大列数」で適切な値を設定
+2. デフォルト値は20（0に設定すると無効）
+3. 設定は自動的に一時ファイルとして作成され、変換後に削除されます
+
+**使用例**:
+```markdown
+$$
+\begin{bmatrix}
+a_{11} & a_{12} & a_{13} & a_{14} & a_{15} & a_{16} & a_{17} & a_{18} & a_{19} & a_{20} & a_{21} & a_{22} \\
+b_{11} & b_{12} & b_{13} & b_{14} & b_{15} & b_{16} & b_{17} & b_{18} & b_{19} & b_{20} & b_{21} & b_{22}
+\end{bmatrix}
+$$
+```
+
+**注意**: この設定は元のMarkdownファイルに影響を与えず、変換時のみ適用されます。
+
+### 文字サイズ・余白・レイアウトの調整
+
+**文字サイズの調整**:
+**オプション設定**タブの「カスタムPandoc引数」欄に以下のような引数を追加できます：
+
+```
+-V fontsize=12pt    # 12ポイント（標準）
+-V fontsize=10pt    # 10ポイント（小さめ）
+-V fontsize=14pt    # 14ポイント（大きめ）
+```
+
+**余白の調整**:
+```
+-V geometry:margin=2cm                          # 上下左右すべて2cm
+-V geometry:top=2cm,bottom=2cm,left=3cm,right=3cm  # 個別指定
+-V geometry:margin=1in                          # 上下左右すべて1インチ
+-V geometry:margin=15mm                         # 上下左右すべて15mm
+```
+
+**紙サイズの指定**:
+```
+-V papersize=a4        # A4サイズ（デフォルト）
+-V papersize=letter    # レターサイズ
+-V papersize=a3        # A3サイズ
+-V papersize=b4        # B4サイズ
+```
+
+**行間の調整**:
+```
+-V linestretch=1.2     # 行間を1.2倍に設定
+-V linestretch=1.5     # 行間を1.5倍に設定（広め）
+```
+
+**その他のレイアウトオプション**:
+```
+-V classoption=10pt,a4paper,twoside    # 10pt、A4、両面印刷用
+-V classoption=12pt,b5paper            # 12pt、B5サイズ
+```
+
+**使用例**（コンパクトな文書の場合）:
+```
+-V fontsize=10pt
+-V geometry:margin=15mm
+-V linestretch=1.1
+-V classoption=10pt,a4paper
+```
+
+**使用例**（読みやすい文書の場合）:
+```
+-V fontsize=12pt
+-V geometry:margin=25mm
+-V linestretch=1.3
+-V classoption=12pt,a4paper
+```
+
+### bxjsarticle ドキュメントクラスのオプション
+
+現在デフォルトで使用している`bxjsarticle`は日本語LaTeX用のドキュメントクラスです。以下のオプションが利用可能です：
+
+**文字サイズオプション**:
+- `10pt`, `11pt`, `12pt`, `14pt`, `17pt`, `20pt`, `25pt`
+
+**紙サイズオプション**:
+- `a3paper`, `a4paper`, `a5paper`, `b4paper`, `b5paper`
+- `letterpaper`, `legalpaper`, `executivepaper`
+
+**レイアウトオプション**:
+- `oneside` / `twoside`: 片面印刷用 / 両面印刷用レイアウト
+- `onecolumn` / `twocolumn`: 1段組 / 2段組
+- `landscape`: 横向き印刷
+- `draft`: ドラフトモード（画像の代わりに枠を表示）
+
+**設定例**:
+```
+-V documentclass=bxjsarticle
+-V classoption=11pt,a4paper,twoside
+```
 
 ## プロファイル例
 
@@ -164,6 +264,73 @@ extra_args:
   - --number-sections
 ```
 
+### コンパクト文書 (compact.yml)
+小さい文字・狭い余白でコンパクトな文書を作成：
+```yaml
+output_format: pdf
+extra_args:
+  - --wrap=preserve
+  - --pdf-engine=xelatex
+  - -V
+  - documentclass=bxjsarticle
+  - -V
+  - classoption=10pt,a4paper
+  - -V
+  - fontsize=10pt
+  - -V
+  - geometry:margin=15mm
+  - -V
+  - linestretch=1.1
+  - --from
+  - markdown+hard_line_breaks
+```
+
+### プレゼン資料 (presentation.yml)
+大きい文字・広い余白で読みやすいプレゼン資料：
+```yaml
+output_format: pdf
+extra_args:
+  - --wrap=preserve
+  - --pdf-engine=xelatex
+  - -V
+  - documentclass=bxjsarticle
+  - -V
+  - classoption=14pt,a4paper
+  - -V
+  - fontsize=14pt
+  - -V
+  - geometry:margin=25mm
+  - -V
+  - linestretch=1.4
+  - --toc
+  - --number-sections
+  - --from
+  - markdown+hard_line_breaks
+```
+
+### レター用紙 (letter.yml)
+アメリカ標準のレター用紙サイズ：
+```yaml
+output_format: pdf
+extra_args:
+  - --wrap=preserve
+  - --pdf-engine=xelatex
+  - -V
+  - documentclass=bxjsarticle
+  - -V
+  - classoption=12pt,letterpaper
+  - -V
+  - fontsize=12pt
+  - -V
+  - papersize=letter
+  - -V
+  - geometry:margin=1in
+  - -V
+  - linestretch=1.2
+  - --from
+  - markdown+hard_line_breaks
+```
+
 ## 実行ファイルの作成
 
 スタンドアロンの実行ファイル（.exe）を作成して、Python環境がないPCでも動作させることができます。
@@ -175,17 +342,17 @@ extra_args:
 .\.venv\Scripts\Activate.ps1
 
 # PyInstallerをインストール
-uv pip install pyinstaller
+pip install pyinstaller
 ```
 
 ### 2. 実行ファイルのビルド
 
 ```powershell
 # 基本的な実行ファイル作成
-pyinstaller --name pandoc-gui --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" src/main.py
+python -m PyInstaller --name pandoc-gui --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" src/main.py
 
 # より詳細なオプション付き（推奨）
-pyinstaller ^
+python -m PyInstaller ^
   --name "Pandoc GUI Converter" ^
   --onefile ^
   --noconsole ^
@@ -224,19 +391,19 @@ release/
 **ビルドエラーが発生する場合:**
 ```powershell
 # キャッシュをクリア
-pyinstaller --clean --onefile src/main.py
+python -m PyInstaller --clean --onefile src/main.py
 ```
 
 **実行ファイルが起動しない場合:**
 ```powershell
 # コンソール表示有りでデバッグ
-pyinstaller --onefile --console src/main.py
+python -m PyInstaller --onefile --console src/main.py
 ```
 
 **ファイルサイズを小さくしたい場合:**
 ```powershell
 # UPX圧縮を使用（別途UPXのインストールが必要）
-pyinstaller --onefile --upx-dir=C:\upx src/main.py
+python -m PyInstaller --onefile --upx-dir=C:\upx src/main.py
 ```
 
 ## トラブルシューティング

@@ -194,6 +194,44 @@ class Ui_MainWindow:
         self.markdown_extensions = QLineEdit("markdown+hard_line_breaks")
         basic_options_layout.addRow("Markdown拡張:", self.markdown_extensions)
         
+        # フォントサイズ
+        self.font_size = QComboBox()
+        self.font_size.addItems(["", "8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt", "25pt"])
+        self.font_size.setCurrentText("")  # デフォルトは未設定
+        basic_options_layout.addRow("フォントサイズ:", self.font_size)
+        
+        # 用紙サイズ
+        self.paper_size = QComboBox()
+        self.paper_size.addItems(["", "a3paper", "a4paper", "a5paper", "b4paper", "b5paper", "letterpaper"])
+        self.paper_size.setCurrentText("")  # デフォルトは未設定
+        basic_options_layout.addRow("用紙サイズ:", self.paper_size)
+        
+        # 余白設定（詳細）
+        margin_group = QGroupBox("余白設定")
+        margin_layout = QGridLayout(margin_group)
+        
+        self.margin_top = QLineEdit()
+        self.margin_top.setPlaceholderText("例: 20mm")
+        margin_layout.addWidget(QLabel("上:"), 0, 0)
+        margin_layout.addWidget(self.margin_top, 0, 1)
+        
+        self.margin_bottom = QLineEdit()
+        self.margin_bottom.setPlaceholderText("例: 20mm")
+        margin_layout.addWidget(QLabel("下:"), 0, 2)
+        margin_layout.addWidget(self.margin_bottom, 0, 3)
+        
+        self.margin_left = QLineEdit()
+        self.margin_left.setPlaceholderText("例: 25mm")
+        margin_layout.addWidget(QLabel("左:"), 1, 0)
+        margin_layout.addWidget(self.margin_left, 1, 1)
+        
+        self.margin_right = QLineEdit()
+        self.margin_right.setPlaceholderText("例: 25mm")
+        margin_layout.addWidget(QLabel("右:"), 1, 2)
+        margin_layout.addWidget(self.margin_right, 1, 3)
+        
+        layout.addWidget(margin_group)
+        
         # LaTeX行列の最大列数
         self.max_matrix_cols = QSpinBox()
         self.max_matrix_cols.setRange(0, 100)  # 0は無効（オプション追加なし）

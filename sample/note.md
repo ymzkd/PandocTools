@@ -174,3 +174,21 @@ Q_E = C_s \times G
 $$
 
 として計算できる。
+
+$$
+\int_V \mathbf{A}_2 \mathbf{A}_2^T dV = 
+\begin{bmatrix}
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & \frac{6N_x}{5\ell} & 0 & -\frac{M_{yi}+M_{yj}}{2\ell} & 0 & \frac{N_x}{10} & 0 & -\frac{6N_x}{5\ell} & 0 & \frac{M_{yi}+M_{yj}}{2\ell} & 0 & \frac{N_x}{10} \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & -\frac{M_{yi}+M_{yj}}{2\ell} & 0 & \frac{N_x I_y}{A \cdot \ell^2} & 0 & 0 & 0 & \frac{M_{yi}+M_{yj}}{2\ell} & 0 & -\frac{N_x I_y}{A \cdot \ell^2} & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & \frac{N_x}{10} & 0 & 0 & 0 & \frac{2N_x \ell}{15} & 0 & -\frac{N_x}{10} & 0 & 0 & 0 & -\frac{N_x \ell}{30} \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & -\frac{6N_x}{5\ell} & 0 & \frac{M_{yi}+M_{yj}}{2\ell} & 0 & -\frac{N_x}{10} & 0 & \frac{6N_x}{5\ell} & 0 & -\frac{M_{yi}+M_{yj}}{2\ell} & 0 & -\frac{N_x}{10} \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & \frac{M_{yi}+M_{yj}}{2\ell} & 0 & -\frac{N_x I_y}{A \cdot \ell^2} & 0 & 0 & 0 & -\frac{M_{yi}+M_{yj}}{2\ell} & 0 & \frac{N_x I_y}{A \cdot \ell^2} & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & \frac{N_x}{10} & 0 & 0 & 0 & -\frac{N_x \ell}{30} & 0 & -\frac{N_x}{10} & 0 & 0 & 0 & \frac{2N_x \ell}{15}
+\end{bmatrix}
+$$
