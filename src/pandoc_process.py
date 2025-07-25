@@ -38,9 +38,6 @@ class PandocWorker(QObject):
         if extra_args is None:
             extra_args = []
             
-        # コマンドライン引数を構築
-        cmd = ['pandoc', input_file, '-o', output_file] + extra_args
-        
         # Pandoc が PATH にあるかチェック
         if not self._check_pandoc_available():
             self.stderr_received.emit("エラー: Pandoc が見つかりません。Pandocがインストールされ、PATHに設定されていることを確認してください。\n")
@@ -50,6 +47,12 @@ class PandocWorker(QObject):
         # 出力ディレクトリが存在しない場合は作成
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # リソースパスを抽出して追加
+        resource_paths = self._extract_resource_paths([input_file])
+        
+        # コマンドライン引数を構築
+        cmd = ['pandoc', input_file, '-o', output_file, '--resource-path', resource_paths] + extra_args
         
         # プロセス実行
         self.stdout_received.emit(f"実行コマンド: {' '.join(cmd)}\n")
@@ -102,8 +105,11 @@ class PandocWorker(QObject):
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        # コマンドライン引数を構築（複数の入力ファイル + 出力ファイル + 追加引数）
-        cmd = ['pandoc'] + input_files + ['-o', output_file] + extra_args
+        # リソースパスを抽出して追加
+        resource_paths = self._extract_resource_paths(input_files)
+        
+        # コマンドライン引数を構築（複数の入力ファイル + 出力ファイル + リソースパス + 追加引数）
+        cmd = ['pandoc'] + input_files + ['-o', output_file, '--resource-path', resource_paths] + extra_args
         
         # プロセス実行
         self.stdout_received.emit(f"結合変換を開始:\n")
@@ -111,6 +117,7 @@ class PandocWorker(QObject):
         for i, file in enumerate(input_files, 1):
             self.stdout_received.emit(f"  {i}. {Path(file).name}\n")
         self.stdout_received.emit(f"出力ファイル: {Path(output_file).name}\n")
+        self.stdout_received.emit(f"リソースパス: {resource_paths}\n")
         self.stdout_received.emit(f"実行コマンド: {' '.join(cmd)}\n\n")
         
         self.proc.start('pandoc', cmd[1:])
@@ -145,6 +152,24 @@ class PandocWorker(QObject):
         """プロセスを強制終了する"""
         if self.proc.state() == QProcess.ProcessState.Running:
             self.proc.kill()
+            
+    def _extract_resource_paths(self, input_files: List[str]) -> str:
+        """
+        入力ファイルのディレクトリからリソースパスを抽出
+        
+        Args:
+            input_files: 入力ファイルパスのリスト
+            
+        Returns:
+            Windows形式（;区切り）のリソースパス文字列
+        """
+        unique_dirs = set()
+        for file_path in input_files:
+            dir_path = Path(file_path).parent.resolve()
+            unique_dirs.add(str(dir_path))
+        
+        # Windows形式（;区切り）でパス結合、ソート済み
+        return ';'.join(sorted(unique_dirs))
             
     def _check_pandoc_available(self) -> bool:
         """Pandoc が利用可能かチェック"""
