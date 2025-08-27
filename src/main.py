@@ -338,7 +338,7 @@ class MainWindow(QMainWindow):
             # 一時ファイルを作成してLaTeXコマンドを書き込む
             try:
                 self.temp_header_file = tempfile.NamedTemporaryFile(mode='w', suffix='.tex', delete=False)
-                self.temp_header_file.write(f"\\setcounter{{MaxMatrixCols}}{{{max_matrix_cols}}}\n")
+                self.temp_header_file.write(f"\\usepackage{{amsmath,amssymb,amsthm,mathrsfs}}\n\\usepackage{{unicode-math}}\n\\newcommand\\bm{{\\symbf}}\n\\setcounter{{MaxMatrixCols}}{{{max_matrix_cols}}}\n")
                 self.temp_header_file.close()
                 extra_args.extend(["--include-in-header", self.temp_header_file.name])
                 self.append_log(f"一時ファイルを作成しました: {self.temp_header_file.name}\n")
