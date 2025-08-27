@@ -4,7 +4,8 @@ function Math(el)
     local text = el.text or ""
     
     -- 数式環境をチェック（より単純なパターン）
-    local has_env = text:find("\\begin{align") or 
+    local has_env = text:find("\\begin{align}") or 
+                   text:find("\\begin{align%*}") or
                    text:find("\\begin{gather") or
                    text:find("\\begin{multline") or
                    text:find("\\begin{equation") or
