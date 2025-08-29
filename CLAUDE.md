@@ -35,7 +35,7 @@ python src/main.py
 
 ### Building Executable
 ```powershell
-python -m PyInstaller --name "Pandoc GUI Converter" --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" src/main.py
+python -m PyInstaller --name "Pandoc GUI Converter" --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" --add-data "src/templates;templates" src/main.py
 ```
 
 ## Architecture

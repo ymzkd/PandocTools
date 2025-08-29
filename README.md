@@ -349,7 +349,7 @@ pip install pyinstaller
 
 ```powershell
 # 基本的な実行ファイル作成
-python -m PyInstaller --name pandoc-gui --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" src/main.py
+python -m PyInstaller --name pandoc-gui --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" --add-data "src/templates;templates" src/main.py
 
 # より詳細なオプション付き（推奨）
 python -m PyInstaller ^
@@ -358,6 +358,7 @@ python -m PyInstaller ^
   --noconsole ^
   --add-data "profiles;profiles" ^
   --add-data "src/filters;filters" ^
+  --add-data "src/templates;templates" ^
   --icon=src/resources/icon.ico ^
   --version-file=version_info.txt ^
   --distpath=release ^
@@ -370,6 +371,7 @@ python -m PyInstaller ^
 - `--noconsole`: コンソールウィンドウを表示しない（GUIアプリの場合）
 - `--add-data "profiles;profiles"`: プロファイルフォルダを含める
 - `--add-data "src/filters;filters"`: 内蔵フィルターを含める
+- `--add-data "src/templates;templates"`: LaTeXヘッダーテンプレートを含める
 - `--icon`: アプリケーションアイコンを指定（オプション）
 - `--distpath`: 出力ディレクトリを指定
 

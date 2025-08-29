@@ -157,9 +157,12 @@ class Ui_MainWindow:
         # 初期状態では無効化
         self.output_filename.setEnabled(False)
         
-        layout.addWidget(output_group)
+        # LaTeXファイル出力オプション
+        self.output_latex = QCheckBox("LaTeXファイルも出力する（PDF出力時のみ、デバッグ用）")
+        self.output_latex.setChecked(False)  # デフォルトはFalse
+        output_layout.addRow("", self.output_latex)
         
-
+        layout.addWidget(output_group)
         
         layout.addStretch()
         
@@ -229,6 +232,12 @@ class Ui_MainWindow:
         self.margin_right.setPlaceholderText("例: 25mm")
         margin_layout.addWidget(QLabel("右:"), 1, 2)
         margin_layout.addWidget(self.margin_right, 1, 3)
+        
+        # フッター間隔（footskip）
+        self.footskip = QLineEdit()
+        self.footskip.setPlaceholderText("例: 20pt, 25pt")
+        margin_layout.addWidget(QLabel("フッター間隔:"), 2, 0)
+        margin_layout.addWidget(self.footskip, 2, 1)
         
         layout.addWidget(margin_group)
         

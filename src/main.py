@@ -255,6 +255,7 @@ class MainWindow(QMainWindow):
         margin_bottom = self.ui.margin_bottom.text().strip()
         margin_left = self.ui.margin_left.text().strip()
         margin_right = self.ui.margin_right.text().strip()
+        footskip = self.ui.footskip.text().strip()
         
         margin_parts = []
         if margin_top:
@@ -265,6 +266,8 @@ class MainWindow(QMainWindow):
             margin_parts.append(f"left={margin_left}")
         if margin_right:
             margin_parts.append(f"right={margin_right}")
+        if footskip:
+            margin_parts.append(f"footskip={footskip}")
         
         if margin_parts:
             args.extend(["-V", f"geometry:{','.join(margin_parts)}"])
@@ -332,13 +335,29 @@ class MainWindow(QMainWindow):
         # 追加引数を収集
         extra_args = self.collect_extra_args()
         
+        # LaTeXファイル出力オプション
+        output_latex = self.ui.output_latex.isChecked() and output_format == "pdf"
+        
         # LaTeX行列の最大列数設定を動的に追加
         max_matrix_cols = self.ui.max_matrix_cols.value()
         if max_matrix_cols > 0:
             # 一時ファイルを作成してLaTeXコマンドを書き込む
             try:
+                # 基本ヘッダーファイルを読み込み
+                header_base_path = Path(__file__).parent / "templates" / "latex_header_base.tex"
+                if header_base_path.exists():
+                    with open(header_base_path, 'r', encoding='utf-8') as f:
+                        header_content = f.read()
+                else:
+                    # フォールバック（ファイルがない場合）
+                    header_content = "\\usepackage{amsmath,amssymb,amsthm,mathrsfs}\n\\usepackage{unicode-math}\n\\renewcommand\\boldsymbol{\\symbf}\n\\newcommand\\bm{\\symbf}"
+                
+                # 動的な設定を追加
+                header_content += f"\n\n% Dynamic settings\n\\setcounter{{MaxMatrixCols}}{{{max_matrix_cols}}}\n"
+                
+                # 一時ファイルに書き込み
                 self.temp_header_file = tempfile.NamedTemporaryFile(mode='w', suffix='.tex', delete=False)
-                self.temp_header_file.write(f"\\usepackage{{amsmath,amssymb,amsthm,mathrsfs}}\n\\usepackage{{unicode-math}}\n\\newcommand\\bm{{\\symbf}}\n\\setcounter{{MaxMatrixCols}}{{{max_matrix_cols}}}\n")
+                self.temp_header_file.write(header_content)
                 self.temp_header_file.close()
                 extra_args.extend(["--include-in-header", self.temp_header_file.name])
                 self.append_log(f"一時ファイルを作成しました: {self.temp_header_file.name}\n")
@@ -351,7 +370,10 @@ class MainWindow(QMainWindow):
             # 単一ファイル変換
             input_file = input_files[0]
             output_file = Path(output_dir) / f"{Path(input_file).stem}.{output_format}"
-            self.worker.run(input_file, str(output_file), extra_args)
+            if output_latex:
+                self.worker.run_with_latex(input_file, str(output_file), extra_args)
+            else:
+                self.worker.run(input_file, str(output_file), extra_args)
         else:
             # 複数ファイル処理
             if self.ui.merge_files.isChecked():
@@ -366,10 +388,16 @@ class MainWindow(QMainWindow):
                     # デフォルトファイル名を生成
                     first_file_name = Path(input_files[0]).stem
                     output_file = Path(output_dir) / f"{first_file_name}_merged.{output_format}"
-                self.worker.run_merge(input_files, str(output_file), extra_args)
+                if output_latex:
+                    self.worker.run_merge_with_latex(input_files, str(output_file), extra_args)
+                else:
+                    self.worker.run_merge(input_files, str(output_file), extra_args)
             else:
                 # 一括変換：各ファイルを個別に変換
-                self.worker.run_batch(input_files, output_dir, output_format, extra_args)
+                if output_latex:
+                    self.worker.run_batch_with_latex(input_files, output_dir, output_format, extra_args)
+                else:
+                    self.worker.run_batch(input_files, output_dir, output_format, extra_args)
             
         self.current_output_dir = output_dir
         
@@ -502,6 +530,7 @@ class MainWindow(QMainWindow):
         self.ui.margin_bottom.clear()
         self.ui.margin_left.clear()
         self.ui.margin_right.clear()
+        self.ui.footskip.clear()
         
         # コンボボックスをリセット
         self.ui.font_size.setCurrentText("")
@@ -581,6 +610,8 @@ class MainWindow(QMainWindow):
                                     self.ui.margin_left.setText(value)
                                 elif key == 'right':
                                     self.ui.margin_right.setText(value)
+                                elif key == 'footskip':
+                                    self.ui.footskip.setText(value)
                     processed = True
                 
                 if processed:

@@ -1,25 +1,24 @@
-output_format: pdf
+bibliography: ''
+css_file: ''
 extra_args:
-  - --wrap=preserve
-  - --pdf-engine=xelatex
-  - -V
-  - documentclass=bxjsarticle
-  - -V
-  - classoption=pandoc
-  - -V
-  - fontsize=9pt
-  - -V
-  - papersize=a4
-  - -V
-  - geometry:margin=15mm
-  - --from
-  - markdown+hard_line_breaks
-lua_filter: ""
-template: ""
-css_file: ""
-bibliography: ""
-merge_files: true
-use_custom_filename: false
-output_filename: ""
+- --wrap=preserve
+- --pdf-engine=xelatex
+- -V
+- documentclass=bxjsarticle
+- -V
+- classoption=pandoc
+- -V
+- fontsize=9pt
+- -V
+- geometry:top=20mm,bottom=25mm,left=15mm,right=15mm,footskip=30pt
+- --from
+- markdown+hard_line_breaks
+- --lua-filter=c:\Users\tot-t\Dropbox\Develop\PandocTools\src\filters\default_filter.lua
+- --lua-filter=c:\Users\tot-t\Dropbox\Develop\PandocTools\src\filters\default_filter.lua
+lua_filter: ''
 max_matrix_cols: 20
-metadata: {}
+merge_files: true
+output_filename: ''
+output_format: pdf
+template: ''
+use_custom_filename: false

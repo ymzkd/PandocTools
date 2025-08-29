@@ -135,8 +135,12 @@ class PandocWorker(QObject):
         
         self.stdout_received.emit(f"\n--- 変換中 ({self._batch_index + 1}/{len(self._batch_files)}): {input_path.name} ---\n")
         
-        # 単一ファイル変換を実行
-        self.run(str(input_file), str(output_file), self._batch_extra_args)
+        # LaTeXモードかどうかで処理を分岐
+        if hasattr(self, '_batch_latex_mode') and self._batch_latex_mode:
+            self.run_with_latex(str(input_file), str(output_file), self._batch_extra_args)
+        else:
+            # 単一ファイル変換を実行
+            self.run(str(input_file), str(output_file), self._batch_extra_args)
         
     def _on_batch_finished(self, exit_code: int):
         """バッチ処理の各ファイル完了時の処理"""
@@ -199,6 +203,9 @@ class PandocWorker(QObject):
         if hasattr(self, '_batch_files'):
             # バッチ処理中の場合
             self._on_batch_finished(exit_code)
+        elif hasattr(self, '_latex_mode') and self._latex_mode:
+            # LaTeXモードの場合
+            self._on_latex_finished(exit_code)
         else:
             # 単一ファイル処理の場合
             if exit_code == 0:
@@ -207,6 +214,161 @@ class PandocWorker(QObject):
                 self.stderr_received.emit(f"\n=== 変換失敗 (終了コード: {exit_code}) ===\n")
             self.finished.emit(exit_code)
             
+    def _on_latex_finished(self, exit_code: int):
+        """LaTeX生成完了時の処理"""
+        if exit_code == 0:
+            self.stdout_received.emit("✓ LaTeXファイル生成成功\n")
+            
+            # 次にPDFを生成
+            self.stdout_received.emit("PDF生成を開始...\n")
+            
+            # LaTeXファイルからPDFを生成するコマンド
+            latex_file = str(Path(self._pdf_output_file).with_suffix('.tex'))
+            
+            # PDF生成用の引数から--include-in-headerを除外
+            pdf_args = []
+            skip_next = False
+            for i, arg in enumerate(self._pdf_extra_args):
+                if skip_next:
+                    skip_next = False
+                    continue
+                if arg == "--include-in-header":
+                    skip_next = True  # 次の引数（ファイルパス）もスキップ
+                    continue
+                pdf_args.append(arg)
+            
+            pdf_cmd = ['pandoc', latex_file, '-o', self._pdf_output_file, '--resource-path', self._pdf_resource_paths] + pdf_args
+            
+            self.stdout_received.emit(f"PDF生成コマンド: {' '.join(pdf_cmd)}\n")
+            
+            # LaTeXモードを解除してPDF生成を開始
+            self._latex_mode = False
+            self.proc.start('pandoc', pdf_cmd[1:])
+        else:
+            self.stderr_received.emit(f"✗ LaTeXファイル生成失敗 (終了コード: {exit_code})\n")
+            # LaTeXモードを解除
+            self._latex_mode = False
+            self.finished.emit(exit_code)
+            
+    def run_with_latex(self, input_file: str, output_file: str, extra_args: List[str] = None):
+        """
+        LaTeXファイルも同時に出力してPandocを実行する
+        
+        Args:
+            input_file: 入力ファイルパス
+            output_file: 出力ファイルパス（PDF）
+            extra_args: 追加引数のリスト
+        """
+        if extra_args is None:
+            extra_args = []
+            
+        # Pandoc が PATH にあるかチェック
+        if not self._check_pandoc_available():
+            self.stderr_received.emit("エラー: Pandoc が見つかりません。Pandocがインストールされ、PATHに設定されていることを確認してください。\n")
+            self.finished.emit(1)
+            return
+            
+        # 出力ディレクトリが存在しない場合は作成
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # LaTeXファイルのパスを生成
+        latex_file = output_path.with_suffix('.tex')
+        
+        # リソースパスを抽出して追加
+        resource_paths = self._extract_resource_paths([input_file])
+        
+        # まずLaTeXファイルを生成
+        latex_cmd = ['pandoc', input_file, '-o', str(latex_file), '--resource-path', resource_paths, '--to=latex'] + extra_args
+        
+        # LaTeXファイル生成の情報をログに出力
+        self.stdout_received.emit(f"LaTeXファイル生成コマンド: {' '.join(latex_cmd)}\n")
+        
+        # LaTeX生成とPDF生成を連続実行するため、情報を保存
+        self._latex_mode = True
+        self._pdf_output_file = str(output_file)
+        self._pdf_extra_args = extra_args
+        self._pdf_resource_paths = resource_paths
+        
+        # LaTeXファイル生成を開始
+        self.proc.start('pandoc', latex_cmd[1:])
+        
+    def run_batch_with_latex(self, input_files: List[str], output_dir: str, output_format: str, extra_args: List[str] = None):
+        """
+        複数ファイルをLaTeXファイル付きで一括変換する
+        
+        Args:
+            input_files: 入力ファイルパスのリスト
+            output_dir: 出力ディレクトリ
+            output_format: 出力形式（pdf）
+            extra_args: 追加引数のリスト
+        """
+        if extra_args is None:
+            extra_args = []
+            
+        # 出力ディレクトリを作成
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        # 各ファイルを順次変換
+        self._batch_files = input_files
+        self._batch_output_dir = output_dir
+        self._batch_format = output_format
+        self._batch_extra_args = extra_args
+        self._batch_index = 0
+        self._batch_latex_mode = True
+        self._run_next_batch_file()
+        
+    def run_merge_with_latex(self, input_files: List[str], output_file: str, extra_args: List[str] = None):
+        """
+        複数ファイルを結合してLaTeXファイル付きで変換する
+        
+        Args:
+            input_files: 入力ファイルパスのリスト
+            output_file: 出力ファイルパス
+            extra_args: 追加引数のリスト
+        """
+        if extra_args is None:
+            extra_args = []
+            
+        # Pandoc が PATH にあるかチェック
+        if not self._check_pandoc_available():
+            self.stderr_received.emit("エラー: Pandoc が見つかりません。Pandocがインストールされ、PATHに設定されていることを確認してください。\n")
+            self.finished.emit(1)
+            return
+            
+        # 出力ディレクトリが存在しない場合は作成
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # LaTeXファイルのパスを生成
+        latex_file = output_path.with_suffix('.tex')
+        
+        # リソースパスを抽出して追加
+        resource_paths = self._extract_resource_paths(input_files)
+        
+        # まずLaTeXファイルを生成
+        latex_cmd = ['pandoc'] + input_files + ['-o', str(latex_file), '--resource-path', resource_paths, '--to=latex'] + extra_args
+        
+        # プロセス実行ログ
+        self.stdout_received.emit(f"結合LaTeX生成を開始:\n")
+        self.stdout_received.emit(f"入力ファイル: {len(input_files)}個\n")
+        for i, file in enumerate(input_files, 1):
+            self.stdout_received.emit(f"  {i}. {Path(file).name}\n")
+        self.stdout_received.emit(f"LaTeXファイル: {Path(latex_file).name}\n")
+        self.stdout_received.emit(f"出力ファイル: {Path(output_file).name}\n")
+        self.stdout_received.emit(f"リソースパス: {resource_paths}\n")
+        self.stdout_received.emit(f"LaTeX生成コマンド: {' '.join(latex_cmd)}\n\n")
+        
+        # LaTeX生成とPDF生成を連続実行するため、情報を保存
+        self._latex_mode = True
+        self._pdf_output_file = str(output_file)
+        self._pdf_extra_args = extra_args
+        self._pdf_resource_paths = resource_paths
+        
+        # LaTeXファイル生成を開始
+        self.proc.start('pandoc', latex_cmd[1:])
+
     def _on_started(self):
         """プロセス開始時の処理"""
         self.started.emit() 
