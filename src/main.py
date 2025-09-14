@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
         self.ui.btn_run.clicked.connect(self.start_conversion)
         self.ui.btn_stop.clicked.connect(self.stop_conversion)
         self.ui.btn_open_output.clicked.connect(self.open_output_directory)
+        self.ui.btn_open_pdf.clicked.connect(self.open_output_pdf)
         self.ui.btn_clear_log.clicked.connect(self.clear_log)
         
     def _initialize_ui(self):
@@ -443,6 +444,16 @@ class MainWindow(QMainWindow):
             
         self.current_output_dir = output_dir
         
+        # PDFファイルのパスを保存（PDF変換の場合）
+        if output_format == "pdf":
+            if len(input_files) == 1:
+                self.current_output_pdf = str(output_file)
+            elif self.ui.merge_files.isChecked():
+                self.current_output_pdf = str(output_file)
+            else:
+                # 一括変換時は最後のファイル（実際はworkerで管理）
+                self.current_output_pdf = None
+        
     def stop_conversion(self):
         """変換を停止"""
         self.worker.terminate_process()
@@ -463,6 +474,7 @@ class MainWindow(QMainWindow):
         self.ui.btn_run.setEnabled(False)
         self.ui.btn_stop.setEnabled(True)
         self.ui.btn_open_output.setEnabled(False)
+        self.ui.btn_open_pdf.setEnabled(False)
         self.ui.progress_bar.setVisible(True)
         self.ui.progress_bar.setRange(0, 0)  # 不定長プログレスバー
         self.ui.statusbar.showMessage("変換実行中...")
@@ -485,6 +497,9 @@ class MainWindow(QMainWindow):
         
         if exit_code == 0:
             self.ui.btn_open_output.setEnabled(True)
+            # PDFファイルが生成された場合、PDFを開くボタンを有効化
+            if hasattr(self, 'current_output_pdf') and self.current_output_pdf and Path(self.current_output_pdf).exists():
+                self.ui.btn_open_pdf.setEnabled(True)
             self.ui.statusbar.showMessage("変換完了")
             QMessageBox.information(self, "完了", "変換が正常に完了しました。")
         else:
@@ -500,6 +515,22 @@ class MainWindow(QMainWindow):
                 subprocess.run(["open", self.current_output_dir])
             else:
                 subprocess.run(["xdg-open", self.current_output_dir])
+                
+    def open_output_pdf(self):
+        """生成されたPDFファイルを開く"""
+        if hasattr(self, 'current_output_pdf') and Path(self.current_output_pdf).exists():
+            try:
+                if sys.platform == "win32":
+                    os.startfile(str(self.current_output_pdf))
+                elif sys.platform == "darwin":
+                    subprocess.run(["open", str(self.current_output_pdf)])
+                else:
+                    subprocess.run(["xdg-open", str(self.current_output_pdf)])
+                self.append_log(f"PDFファイルを開きました: {Path(self.current_output_pdf).name}\n")
+            except Exception as e:
+                QMessageBox.warning(self, "エラー", f"PDFファイルを開けませんでした: {e}")
+        else:
+            QMessageBox.information(self, "情報", "開くPDFファイルが見つかりません。")
                 
     def append_log(self, text: str):
         """ログにテキストを追加"""

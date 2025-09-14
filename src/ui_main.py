@@ -408,9 +408,14 @@ class Ui_MainWindow:
         self.btn_open_output.setMinimumHeight(40)
         self.btn_open_output.setEnabled(False)
         
+        self.btn_open_pdf = QPushButton("PDFを開く")
+        self.btn_open_pdf.setMinimumHeight(40)
+        self.btn_open_pdf.setEnabled(False)
+        
         control_layout.addWidget(self.btn_run)
         control_layout.addWidget(self.btn_stop)
         control_layout.addWidget(self.btn_open_output)
+        control_layout.addWidget(self.btn_open_pdf)
         control_layout.addStretch()
         
         execution_layout.addLayout(control_layout)
