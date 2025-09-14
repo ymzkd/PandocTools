@@ -13,8 +13,6 @@ extra_args:
 - geometry:top=20mm,bottom=25mm,left=15mm,right=15mm,footskip=30pt
 - --from
 - markdown+hard_line_breaks
-- --lua-filter=c:\Users\tot-t\Dropbox\Develop\PandocTools\src\filters\default_filter.lua
-- --lua-filter=c:\Users\tot-t\Dropbox\Develop\PandocTools\src\filters\default_filter.lua
 lua_filter: ''
 max_matrix_cols: 20
 merge_files: true

@@ -14,6 +14,17 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QTimer, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QCloseEvent
 
+# アプリケーションのベースディレクトリを取得
+if getattr(sys, 'frozen', False):
+    # PyInstaller でビルドされた実行ファイルの場合
+    # EXEファイルと同じディレクトリからリソースを読み込み
+    BASE_DIR = Path(sys.executable).resolve().parent
+    RESOURCE_DIR = BASE_DIR
+else:
+    # 開発環境の場合
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    RESOURCE_DIR = Path(__file__).resolve().parent
+
 from ui_main import Ui_MainWindow
 from pandoc_process import PandocWorker
 from config import load_profile, save_profile, get_available_profiles, delete_profile, get_default_profile
@@ -45,6 +56,36 @@ class MainWindow(QMainWindow):
         
         # ドラッグ&ドロップ有効化
         self.setAcceptDrops(True)
+        
+    def _resolve_filter_path(self, filter_path: str) -> Path:
+        """
+        フィルタファイルのパスを解決する
+        
+        Args:
+            filter_path: フィルタファイルのパス（相対パスまたは絶対パス）
+            
+        Returns:
+            解決されたパス
+        """
+        path_obj = Path(filter_path)
+        
+        # 絶対パスの場合はそのまま返す
+        if path_obj.is_absolute():
+            return path_obj
+            
+        # 相対パスの場合
+        # 1. filters/ディレクトリ内のファイルとして解決
+        filters_path = RESOURCE_DIR / "filters" / filter_path
+        if filters_path.exists():
+            return filters_path
+            
+        # 2. EXEまたはプロジェクトディレクトリから直接解決
+        direct_path = BASE_DIR / filter_path
+        if direct_path.exists():
+            return direct_path
+        
+        # ファイルが見つからない場合はそのまま返す（エラーはPandocが出す）
+        return path_obj
         
     def _connect_events(self):
         """イベントハンドラーを接続"""
@@ -279,14 +320,15 @@ class MainWindow(QMainWindow):
             args.extend(["--from", md_ext])
             
         # 内蔵フィルター（default_filter.lua）を常に適用
-        builtin_filter_path = Path(__file__).parent / "filters" / "default_filter.lua"
+        builtin_filter_path = RESOURCE_DIR / "filters" / "default_filter.lua"
         if builtin_filter_path.exists():
-            args.extend([f"--lua-filter={builtin_filter_path}"])
+            args.extend(["--lua-filter", str(builtin_filter_path)])
         
         # 追加フィルター
         lua_filter = self.ui.lua_filter.text().strip()
         if lua_filter:
-            args.extend([f"--lua-filter={lua_filter}"])
+            filter_path = self._resolve_filter_path(lua_filter)
+            args.extend(["--lua-filter", str(filter_path)])
             
         template = self.ui.template_file.text().strip()
         if template:
@@ -344,7 +386,7 @@ class MainWindow(QMainWindow):
             # 一時ファイルを作成してLaTeXコマンドを書き込む
             try:
                 # 基本ヘッダーファイルを読み込み
-                header_base_path = Path(__file__).parent / "templates" / "latex_header_base.tex"
+                header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
                 if header_base_path.exists():
                     with open(header_base_path, 'r', encoding='utf-8') as f:
                         header_content = f.read()
