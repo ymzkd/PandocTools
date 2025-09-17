@@ -48,9 +48,6 @@ class Ui_MainWindow:
         # ステータスバー
         self._setup_status_bar(MainWindow)
         
-    def _on_custom_filename_changed(self, state):
-        """カスタムファイル名チェックボックスの状態変更時の処理"""
-        self.output_filename.setEnabled(state == 2)  # Qt.CheckState.Checked = 2
         
     def _setup_basic_tab(self):
         """基本設定タブの設定"""
@@ -156,7 +153,7 @@ class Ui_MainWindow:
         
         # 出力形式
         self.output_format = QComboBox()
-        self.output_format.addItems(["pdf", "html", "docx", "odt", "epub", "tex"])
+        self.output_format.addItems(["pdf", "tex", "docx"])
         output_layout.addRow("出力形式:", self.output_format)
         
         # 出力ディレクトリ
@@ -173,20 +170,10 @@ class Ui_MainWindow:
         output_name_layout = QHBoxLayout()
         self.output_filename = QLineEdit()
         self.output_filename.setPlaceholderText("出力ファイル名（空の場合は自動生成）")
-        self.use_custom_filename = QCheckBox("カスタムファイル名を使用")
-        self.use_custom_filename.stateChanged.connect(self._on_custom_filename_changed)
-        
-        output_name_layout.addWidget(self.use_custom_filename)
         output_name_layout.addWidget(self.output_filename)
         output_layout.addRow("出力ファイル名:", output_name_layout)
         
-        # 初期状態では無効化
-        self.output_filename.setEnabled(False)
         
-        # LaTeXファイル出力オプション
-        self.output_latex = QCheckBox("LaTeXファイルも出力する（PDF出力時のみ、デバッグ用）")
-        self.output_latex.setChecked(False)  # デフォルトはFalse
-        output_layout.addRow("", self.output_latex)
         
         layout.addWidget(output_group)
         
@@ -297,14 +284,6 @@ class Ui_MainWindow:
         template_layout.addWidget(self.btn_select_template)
         filter_layout.addRow("テンプレート:", template_layout)
         
-        # CSS (HTML出力用)
-        css_layout = QHBoxLayout()
-        self.css_file = QLineEdit()
-        self.css_file.setPlaceholderText("CSSファイルのパス (HTML出力用)")
-        self.btn_select_css = QPushButton("選択")
-        css_layout.addWidget(self.css_file)
-        css_layout.addWidget(self.btn_select_css)
-        filter_layout.addRow("CSSファイル:", css_layout)
         
         
         layout.addWidget(filter_group)

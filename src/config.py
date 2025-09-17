@@ -92,10 +92,8 @@ def get_default_profile() -> Dict[str, Any]:
         ],
         "lua_filter": "",  # 追加フィルター用（内蔵フィルターは自動適用）
         "template": "",
-        "css_file": "",
         "bibliography": "",
         "merge_files": True,  # 複数ファイル結合オプション（デフォルト有効）
-        "use_custom_filename": False,  # カスタムファイル名使用オプション
         "output_filename": "",  # カスタム出力ファイル名
         "metadata": {}
     }

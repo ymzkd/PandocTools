@@ -77,10 +77,8 @@ def defaults_to_app_config(defaults_data: Dict[str, Any], project_dir: Optional[
         'extra_args': [],
         'lua_filter': '',
         'template': '',
-        'css_file': '',
         'bibliography': '',
         'merge_files': True,
-        'use_custom_filename': False,
         'output_filename': '',
         'metadata': {}
     }
@@ -110,17 +108,15 @@ def defaults_to_app_config(defaults_data: Dict[str, Any], project_dir: Optional[
         else:
             app_config['input_files'] = [str(file) for file in all_input_files]
 
-    # 出力ファイル
+    # 出力ファイル名（ファイル名のみ）
     if 'output-file' in defaults_data:
         output_file = defaults_data['output-file']
-        app_config['output_file'] = str(output_file)
-        # 出力形式を拡張子から推測
         output_path = Path(output_file)
+        # ファイル名のみを保存
+        app_config['output_filename'] = output_path.name
+        # 出力形式を拡張子から推測
         if output_path.suffix:
             app_config['output_format'] = output_path.suffix[1:]  # 先頭の.を除去
-        # カスタムファイル名を使用
-        app_config['use_custom_filename'] = True
-        app_config['output_filename'] = output_path.name
 
     # 基本的なフラグをextra_argsに変換
     extra_args = []
@@ -168,17 +164,6 @@ def defaults_to_app_config(defaults_data: Dict[str, Any], project_dir: Optional[
             app_config['bibliography'] = str(bibliography)
             extra_args.extend(['--bibliography', str(bibliography)])
 
-    # CSS
-    if 'css' in defaults_data:
-        css = defaults_data['css']
-        if isinstance(css, list) and css:
-            css_file = css[0]  # 最初のファイルを使用
-        else:
-            css_file = str(css)
-        if project_dir and not Path(css_file).is_absolute():
-            css_file = str((project_dir / css_file).resolve())
-        app_config['css_file'] = str(css_file)
-        extra_args.extend(['--css', str(css_file)])
 
     # Variables
     if 'variables' in defaults_data:
@@ -261,9 +246,9 @@ def app_config_to_defaults(app_config: Dict[str, Any], input_files: Optional[Lis
     if bibliography_files:
         defaults_data['bibliography'] = bibliography_files
 
-    # 出力ファイル
-    if app_config.get('output_file'):
-        defaults_data['output-file'] = app_config['output_file']
+    # 出力ファイル名（ファイル名のみ）
+    if app_config.get('output_filename'):
+        defaults_data['output-file'] = app_config['output_filename']
 
     # extra_argsを解析してdefaults形式に変換
     extra_args = app_config.get('extra_args', [])
@@ -287,9 +272,6 @@ def app_config_to_defaults(app_config: Dict[str, Any], input_files: Optional[Lis
             i += 1
         elif arg == '--bibliography' and i + 1 < len(extra_args):
             defaults_data['bibliography'] = [extra_args[i + 1]]
-            i += 1
-        elif arg == '--css' and i + 1 < len(extra_args):
-            defaults_data['css'] = [extra_args[i + 1]]
             i += 1
         elif arg == '-V' and i + 1 < len(extra_args):
             # Variables
@@ -337,8 +319,6 @@ def app_config_to_defaults(app_config: Dict[str, Any], input_files: Optional[Lis
     if app_config.get('template'):
         defaults_data['template'] = app_config['template']
 
-    if app_config.get('css_file'):
-        defaults_data['css'] = [app_config['css_file']]
 
     if app_config.get('lua_filter'):
         if 'filters' not in defaults_data:

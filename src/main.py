@@ -103,7 +103,6 @@ class MainWindow(QMainWindow):
         # 詳細設定タブ
         self.ui.btn_select_lua.clicked.connect(self.select_lua_filter)
         self.ui.btn_select_template.clicked.connect(self.select_template)
-        self.ui.btn_select_css.clicked.connect(self.select_css_file)
         
         # プロファイル管理
         self.ui.btn_load_profile.clicked.connect(self.load_profile)
@@ -228,14 +227,6 @@ class MainWindow(QMainWindow):
         if file_path:
             self.ui.template_file.setText(file_path)
             
-    def select_css_file(self):
-        """CSSファイルを選択"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "CSSファイルを選択", "", "CSS files (*.css);;All files (*)"
-        )
-        if file_path:
-            self.ui.css_file.setText(file_path)
-            
 
     def _get_file_display_name(self, file_path: str) -> str:
         """ファイルの表示名を生成"""
@@ -329,10 +320,6 @@ class MainWindow(QMainWindow):
         template = self.ui.template_file.text().strip()
         if template:
             args.extend([f"--template={template}"])
-            
-        css_file = self.ui.css_file.text().strip()
-        if css_file:
-            args.extend([f"--css={css_file}"])
 
         # 参考文献スタイル（default.csl）を常に適用
         csl_path = RESOURCE_DIR / "templates" / "default.csl"
@@ -389,8 +376,6 @@ class MainWindow(QMainWindow):
         for bib_file in bibliography_files:
             extra_args.extend(["--bibliography", bib_file])
         
-        # LaTeXファイル出力オプション
-        output_latex = self.ui.output_latex.isChecked() and output_format == "pdf"
         
         # LaTeXヘッダーファイルを直接include
         header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
@@ -402,16 +387,13 @@ class MainWindow(QMainWindow):
             # 単一ファイル変換
             input_file = input_files[0]
             output_file = Path(output_dir) / f"{Path(input_file).stem}.{output_format}"
-            if output_latex:
-                self.worker.run_with_latex(input_file, str(output_file), extra_args)
-            else:
-                self.worker.run(input_file, str(output_file), extra_args)
+            self.worker.run(input_file, str(output_file), extra_args)
         else:
             # 複数ファイル処理
             if self.ui.merge_files.isChecked():
                 # 結合変換：複数ファイルを一つにまとめる
-                if self.ui.use_custom_filename.isChecked() and self.ui.output_filename.text().strip():
-                    # カスタムファイル名を使用
+                if self.ui.output_filename.text().strip():
+                    # 出力ファイル名が指定されている場合
                     custom_name = self.ui.output_filename.text().strip()
                     # 拡張子を除去（もしあれば）
                     custom_name = custom_name.rsplit('.', 1)[0]
@@ -420,16 +402,10 @@ class MainWindow(QMainWindow):
                     # デフォルトファイル名を生成
                     first_file_name = Path(input_files[0]).stem
                     output_file = Path(output_dir) / f"{first_file_name}_merged.{output_format}"
-                if output_latex:
-                    self.worker.run_merge_with_latex(input_files, str(output_file), extra_args)
-                else:
-                    self.worker.run_merge(input_files, str(output_file), extra_args)
+                self.worker.run_merge(input_files, str(output_file), extra_args)
             else:
                 # 一括変換：各ファイルを個別に変換
-                if output_latex:
-                    self.worker.run_batch_with_latex(input_files, output_dir, output_format, extra_args)
-                else:
-                    self.worker.run_batch(input_files, output_dir, output_format, extra_args)
+                self.worker.run_batch(input_files, output_dir, output_format, extra_args)
             
         self.current_output_dir = output_dir
         
@@ -684,13 +660,11 @@ class MainWindow(QMainWindow):
         # ファイルパス系
         self.ui.lua_filter.setText(profile_data.get('lua_filter', ''))
         self.ui.template_file.setText(profile_data.get('template', ''))
-        self.ui.css_file.setText(profile_data.get('css_file', ''))
         
         # 結合オプション
         self.ui.merge_files.setChecked(profile_data.get('merge_files', False))
         
         # カスタムファイル名
-        self.ui.use_custom_filename.setChecked(profile_data.get('use_custom_filename', False))
         self.ui.output_filename.setText(profile_data.get('output_filename', ''))
         
         
@@ -707,9 +681,7 @@ class MainWindow(QMainWindow):
             "extra_args": self.collect_extra_args(),
             "lua_filter": self.ui.lua_filter.text().strip(),
             "template": self.ui.template_file.text().strip(),
-            "css_file": self.ui.css_file.text().strip(),
             "merge_files": self.ui.merge_files.isChecked(),
-            "use_custom_filename": self.ui.use_custom_filename.isChecked(),
             "output_filename": self.ui.output_filename.text().strip(),
         }
         
@@ -768,7 +740,6 @@ class MainWindow(QMainWindow):
             self.current_project_path = file_path
             self.ui.current_project_file.setText(str(Path(file_path).name))
 
-            QMessageBox.information(self, "完了", f"プロジェクトファイル '{Path(file_path).name}' を読み込みました。")
 
         except Exception as e:
             QMessageBox.warning(self, "エラー", f"プロジェクトファイルの読み込みに失敗しました: {e}")
@@ -789,13 +760,10 @@ class MainWindow(QMainWindow):
                     self.append_log(f"警告: ファイルが見つかりません: {file_path}\n")
 
 
-        # 出力設定
+        # 出力ファイル名のみを設定
         if app_config.get('output_file'):
             output_path = Path(app_config['output_file'])
-            # 出力ディレクトリを設定
-            self.ui.output_dir.setText(str(output_path.parent))
-            # カスタムファイル名を設定
-            self.ui.use_custom_filename.setChecked(True)
+            # ファイル名のみを設定（ディレクトリは設定しない）
             self.ui.output_filename.setText(output_path.name)
 
         # 出力形式
@@ -941,18 +909,13 @@ class MainWindow(QMainWindow):
                 'output_format': self.ui.output_format.currentText(),
                 'extra_args': self.collect_extra_args(),
                 'template': self.ui.template_file.text().strip(),
-                'css_file': self.ui.css_file.text().strip(),
                 'lua_filter': self.ui.lua_filter.text().strip(),
                 'metadata': {}
             }
 
-            # 出力ファイルを設定
-            if self.ui.use_custom_filename.isChecked() and self.ui.output_filename.text().strip():
-                output_dir = self.ui.output_dir.text().strip()
-                if not output_dir:
-                    output_dir = str(Path(input_files[0]).parent)
-                output_file = Path(output_dir) / self.ui.output_filename.text().strip()
-                app_config['output_file'] = str(output_file)
+            # 出力ファイル名のみを設定（ディレクトリは含めない）
+            if self.ui.output_filename.text().strip():
+                app_config['output_file'] = self.ui.output_filename.text().strip()
 
             # プロジェクトディレクトリからの相対パスに変換
             project_dir = Path(file_path).parent
