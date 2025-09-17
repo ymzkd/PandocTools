@@ -241,12 +241,6 @@ class Ui_MainWindow:
         
         layout.addWidget(margin_group)
         
-        # LaTeX行列の最大列数
-        self.max_matrix_cols = QSpinBox()
-        self.max_matrix_cols.setRange(0, 100)  # 0は無効（オプション追加なし）
-        self.max_matrix_cols.setValue(20)  # デフォルト値
-        self.max_matrix_cols.setSpecialValueText("無効")  # 0の場合の表示
-        basic_options_layout.addRow("LaTeX行列最大列数:", self.max_matrix_cols)
         
         layout.addWidget(basic_options_group)
         

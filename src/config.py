@@ -97,7 +97,6 @@ def get_default_profile() -> Dict[str, Any]:
         "merge_files": True,  # 複数ファイル結合オプション（デフォルト有効）
         "use_custom_filename": False,  # カスタムファイル名使用オプション
         "output_filename": "",  # カスタム出力ファイル名
-        "max_matrix_cols": 20,  # LaTeX行列の最大列数（デフォルト20）
         "metadata": {}
     }
 
