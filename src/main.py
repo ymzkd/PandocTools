@@ -336,7 +336,12 @@ class MainWindow(QMainWindow):
         css_file = self.ui.css_file.text().strip()
         if css_file:
             args.extend([f"--css={css_file}"])
-            
+
+        # 参考文献スタイル（default.csl）を常に適用
+        csl_path = RESOURCE_DIR / "templates" / "default.csl"
+        if csl_path.exists():
+            args.extend(["--csl", str(csl_path)])
+
         bibliography = self.ui.bibliography.text().strip()
         if bibliography:
             args.extend([f"--bibliography={bibliography}"])
