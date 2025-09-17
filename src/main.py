@@ -955,19 +955,86 @@ class MainWindow(QMainWindow):
 
         if files:
             for file_path in files:
-                # 重複チェック
-                is_duplicate = False
-                for i in range(self.ui.file_list.count()):
-                    if self.ui.file_list.item(i).data(256) == file_path:
-                        is_duplicate = True
-                        break
+                # YAMLファイルの特別処理：Pandoc defaults fileかチェック
+                if file_path.lower().endswith(('.yaml', '.yml')):
+                    if self.is_pandoc_defaults_file(file_path):
+                        # プロジェクトファイルとして読み込み
+                        self.load_project_file_direct(file_path)
+                        continue
 
-                if not is_duplicate:
-                    display_name = self._get_file_display_name(file_path)
-                    item = QListWidgetItem(display_name)
-                    item.setData(256, file_path)
-                    self.ui.file_list.addItem(item)
+                # その他のファイルは通常の入力ファイルとして処理
+                if file_path.lower().endswith(('.md', '.markdown', '.mdown', '.mkd', '.bib', '.json', '.yaml', '.yml')):
+                    # 重複チェック
+                    is_duplicate = False
+                    for i in range(self.ui.file_list.count()):
+                        if self.ui.file_list.item(i).data(256) == file_path:
+                            is_duplicate = True
+                            break
+
+                    if not is_duplicate:
+                        display_name = self._get_file_display_name(file_path)
+                        item = QListWidgetItem(display_name)
+                        item.setData(256, file_path)
+                        self.ui.file_list.addItem(item)
     
+    def is_pandoc_defaults_file(self, file_path: str) -> bool:
+        """
+        YAMLファイルがPandoc defaults fileかを判定
+
+        Args:
+            file_path: YAMLファイルのパス
+
+        Returns:
+            Pandoc defaults fileの場合 True
+        """
+        try:
+            import yaml
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+
+            if not isinstance(data, dict):
+                return False
+
+            # Pandoc defaults fileの特徴的なキーをチェック
+            pandoc_keys = [
+                'input-files', 'output-file', 'variables', 'metadata',
+                'from', 'to', 'bibliography', 'toc', 'number-sections',
+                'citeproc', 'pdf-engine', 'template', 'filters', 'standalone'
+            ]
+
+            # いずれかのキーが存在すればPandoc defaults fileと判定
+            return any(key in data for key in pandoc_keys)
+
+        except Exception:
+            return False
+
+    def load_project_file_direct(self, file_path: str):
+        """
+        ファイルパスを直接指定してプロジェクトファイルを読み込み
+
+        Args:
+            file_path: プロジェクトファイルのパス
+        """
+        try:
+            # defaults fileを読み込み
+            defaults_data = load_defaults_file(file_path)
+            project_dir = Path(file_path).parent
+
+            # アプリケーション内部形式に変換
+            app_config = defaults_to_app_config(defaults_data, project_dir)
+
+            # UIに適用
+            self.apply_project_to_ui(app_config, defaults_data)
+
+            # 現在のプロジェクトファイルパスを保存
+            self.current_project_path = file_path
+            self.ui.current_project_file.setText(str(Path(file_path).name))
+
+            self.append_log(f"プロジェクトファイルを読み込みました: {Path(file_path).name}\n")
+
+        except Exception as e:
+            QMessageBox.warning(self, "エラー", f"プロジェクトファイルの読み込みに失敗しました: {e}")
+
     def closeEvent(self, event: QCloseEvent):
         """アプリケーション終了時の処理"""
         # 実行中のプロセスを停止

@@ -22,9 +22,7 @@ if exist "dist\Pandoc GUI Converter.exe" (
     echo Copying resource directories...
     xcopy /E /I /Y "profiles" "dist\profiles\" >nul 2>&1 || echo Warning: Could not copy profiles
     xcopy /E /I /Y "src\filters" "dist\filters\" >nul 2>&1 || echo Warning: Could not copy filters
-    if exist "src\templates" (
-        xcopy /E /I /Y "src\templates" "dist\templates\" >nul 2>&1 || echo Warning: Could not copy templates
-    )
+    xcopy /E /I /Y "src\templates" "dist\templates\" >nul 2>&1 || echo Warning: Could not copy templates
     
     echo.
     echo Executable and resources ready in dist folder:
