@@ -67,17 +67,14 @@ class Ui_MainWindow:
         file_buttons_layout = QHBoxLayout()
         self.btn_select_files = QPushButton("ファイル選択")
         self.btn_select_folder = QPushButton("フォルダ選択")
-        self.btn_add_files = QPushButton("ファイル追加")
         self.btn_clear_files = QPushButton("全クリア")
-        
+
         self.btn_select_files.setMinimumWidth(100)
         self.btn_select_folder.setMinimumWidth(100)
-        self.btn_add_files.setMinimumWidth(100)
         self.btn_clear_files.setMinimumWidth(100)
-        
+
         file_buttons_layout.addWidget(self.btn_select_files)
         file_buttons_layout.addWidget(self.btn_select_folder)
-        file_buttons_layout.addWidget(self.btn_add_files)
         file_buttons_layout.addWidget(self.btn_clear_files)
         file_buttons_layout.addStretch()
         input_layout.addLayout(file_buttons_layout)
@@ -123,7 +120,36 @@ class Ui_MainWindow:
         input_layout.addLayout(multi_option_layout)
         
         layout.addWidget(input_group)
-        
+
+        # プロジェクトファイル設定
+        project_group = QGroupBox("プロジェクトファイル（Pandoc defaults file）")
+        project_layout = QFormLayout(project_group)
+
+        # 現在のプロジェクトファイル表示
+        self.current_project_file = QLineEdit()
+        self.current_project_file.setReadOnly(True)
+        self.current_project_file.setPlaceholderText("プロジェクトファイルが読み込まれていません")
+        project_layout.addRow("現在のファイル:", self.current_project_file)
+
+        # プロジェクトファイル操作ボタン
+        project_buttons_layout = QHBoxLayout()
+        self.btn_load_project = QPushButton("読み込み")
+        self.btn_save_project = QPushButton("保存")
+        self.btn_save_project_as = QPushButton("名前を付けて保存")
+
+        self.btn_load_project.setMinimumWidth(100)
+        self.btn_save_project.setMinimumWidth(100)
+        self.btn_save_project_as.setMinimumWidth(120)
+
+        project_buttons_layout.addWidget(self.btn_load_project)
+        project_buttons_layout.addWidget(self.btn_save_project)
+        project_buttons_layout.addWidget(self.btn_save_project_as)
+        project_buttons_layout.addStretch()
+
+        project_layout.addRow("操作:", project_buttons_layout)
+
+        layout.addWidget(project_group)
+
         # 出力設定
         output_group = QGroupBox("出力設定")
         output_layout = QFormLayout(output_group)
@@ -280,14 +306,6 @@ class Ui_MainWindow:
         css_layout.addWidget(self.btn_select_css)
         filter_layout.addRow("CSSファイル:", css_layout)
         
-        # 参考文献
-        bib_layout = QHBoxLayout()
-        self.bibliography = QLineEdit()
-        self.bibliography.setPlaceholderText("参考文献ファイルのパス (.bib)")
-        self.btn_select_bib = QPushButton("選択")
-        bib_layout.addWidget(self.bibliography)
-        bib_layout.addWidget(self.btn_select_bib)
-        filter_layout.addRow("参考文献:", bib_layout)
         
         layout.addWidget(filter_group)
         
@@ -301,13 +319,16 @@ class Ui_MainWindow:
         
         self.table_of_contents = QCheckBox("目次を生成 (--toc)")
         checkbox_layout.addWidget(self.table_of_contents, 0, 1)
-        
+
         self.number_sections = QCheckBox("セクション番号 (--number-sections)")
         checkbox_layout.addWidget(self.number_sections, 1, 0)
-        
+
+        self.citeproc = QCheckBox("引用処理 (--citeproc)")
+        checkbox_layout.addWidget(self.citeproc, 1, 1)
+
         self.standalone = QCheckBox("スタンドアロン出力 (--standalone)")
         self.standalone.setChecked(True)
-        checkbox_layout.addWidget(self.standalone, 1, 1)
+        checkbox_layout.addWidget(self.standalone, 2, 0)
         
         layout.addWidget(checkbox_group)
         
