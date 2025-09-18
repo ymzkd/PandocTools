@@ -6,13 +6,8 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 import sys
 
-# アプリケーションのベースディレクトリを取得
-if getattr(sys, 'frozen', False):
-    # PyInstaller でビルドされた実行ファイルの場合
-    BASE_DIR = Path(sys.executable).resolve().parent
-else:
-    # 開発環境の場合
-    BASE_DIR = Path(__file__).resolve().parent.parent
+# 共通モジュールから定数をインポート
+from common import BASE_DIR
 
 
 def load_defaults_file(file_path: Union[str, Path]) -> Dict[str, Any]:

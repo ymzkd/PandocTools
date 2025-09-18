@@ -14,16 +14,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QTimer, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QCloseEvent
 
-# アプリケーションのベースディレクトリを取得
-if getattr(sys, 'frozen', False):
-    # PyInstaller でビルドされた実行ファイルの場合
-    # EXEファイルと同じディレクトリからリソースを読み込み
-    BASE_DIR = Path(sys.executable).resolve().parent
-    RESOURCE_DIR = BASE_DIR
-else:
-    # 開発環境の場合
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    RESOURCE_DIR = Path(__file__).resolve().parent
+# 共通モジュールから定数をインポート
+from common import BASE_DIR, RESOURCE_DIR
 
 from ui_main import Ui_MainWindow
 from pandoc_process import PandocWorker
@@ -618,22 +610,7 @@ class MainWindow(QMainWindow):
                         self.ui.margin_right.setText(margin_value)
                     else:
                         # top=2cm,bottom=2cm,left=3cm,right=3cm の形式を解析
-                        geometry_parts = [part.strip() for part in geometry.split(',')]
-                        for part in geometry_parts:
-                            if '=' in part:
-                                key, value = part.split('=', 1)
-                                key = key.strip()
-                                value = value.strip()
-                                if key == 'top':
-                                    self.ui.margin_top.setText(value)
-                                elif key == 'bottom':
-                                    self.ui.margin_bottom.setText(value)
-                                elif key == 'left':
-                                    self.ui.margin_left.setText(value)
-                                elif key == 'right':
-                                    self.ui.margin_right.setText(value)
-                                elif key == 'footskip':
-                                    self.ui.footskip.setText(value)
+                        self._parse_geometry_string_to_ui(geometry)
                     processed = True
                 
                 if processed:
@@ -821,19 +798,7 @@ class MainWindow(QMainWindow):
             # リスト形式の場合
             for part in geometry:
                 if '=' in part:
-                    key, value = part.split('=', 1)
-                    key = key.strip()
-                    value = value.strip()
-                    if key == 'top':
-                        self.ui.margin_top.setText(value)
-                    elif key == 'bottom':
-                        self.ui.margin_bottom.setText(value)
-                    elif key == 'left':
-                        self.ui.margin_left.setText(value)
-                    elif key == 'right':
-                        self.ui.margin_right.setText(value)
-                    elif key == 'footskip':
-                        self.ui.footskip.setText(value)
+                    self._parse_geometry_part(part)
         elif isinstance(geometry, str):
             # 文字列形式の場合（旧形式サポート）
             if '=' in geometry:
@@ -846,22 +811,30 @@ class MainWindow(QMainWindow):
                     self.ui.margin_right.setText(margin_value)
                 else:
                     # top=20mm,bottom=25mm,left=15mm,right=15mm の形式
-                    parts = [part.strip() for part in geometry.split(',')]
-                    for part in parts:
-                        if '=' in part:
-                            key, value = part.split('=', 1)
-                            key = key.strip()
-                            value = value.strip()
-                            if key == 'top':
-                                self.ui.margin_top.setText(value)
-                            elif key == 'bottom':
-                                self.ui.margin_bottom.setText(value)
-                            elif key == 'left':
-                                self.ui.margin_left.setText(value)
-                            elif key == 'right':
-                                self.ui.margin_right.setText(value)
-                            elif key == 'footskip':
-                                self.ui.footskip.setText(value)
+                    self._parse_geometry_string_to_ui(geometry)
+
+    def _parse_geometry_string_to_ui(self, geometry_str: str):
+        """geometry設定文字列をUIの余白フィールドに解析して設定"""
+        parts = [part.strip() for part in geometry_str.split(',')]
+        for part in parts:
+            if '=' in part:
+                self._parse_geometry_part(part)
+
+    def _parse_geometry_part(self, part: str):
+        """geometry設定の個別項目をUIに設定"""
+        key, value = part.split('=', 1)
+        key = key.strip()
+        value = value.strip()
+        if key == 'top':
+            self.ui.margin_top.setText(value)
+        elif key == 'bottom':
+            self.ui.margin_bottom.setText(value)
+        elif key == 'left':
+            self.ui.margin_left.setText(value)
+        elif key == 'right':
+            self.ui.margin_right.setText(value)
+        elif key == 'footskip':
+            self.ui.footskip.setText(value)
 
     def save_project_file(self):
         """現在のプロジェクトファイルに保存"""

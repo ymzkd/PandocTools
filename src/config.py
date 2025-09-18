@@ -6,13 +6,8 @@ from pathlib import Path
 import sys
 from typing import Dict, List, Any
 
-# アプリケーションのベースディレクトリを取得
-if getattr(sys, 'frozen', False):
-    # PyInstaller でビルドされた実行ファイルの場合
-    BASE_DIR = Path(sys.executable).resolve().parent
-else:
-    # 開発環境の場合
-    BASE_DIR = Path(__file__).resolve().parent.parent
+# 共通モジュールから定数をインポート
+from common import BASE_DIR
 
 PROFILE_DIR = BASE_DIR / 'profiles'
 PROFILE_DIR.mkdir(exist_ok=True)

@@ -1,7 +1,6 @@
 """
 QProcess を使った非同期 Pandoc 実行モジュール
 """
-import os
 import subprocess
 from pathlib import Path
 from typing import List
@@ -199,9 +198,6 @@ class PandocWorker(QObject):
         if hasattr(self, '_batch_files'):
             # バッチ処理中の場合
             self._on_batch_finished(exit_code)
-        elif hasattr(self, '_latex_mode') and self._latex_mode:
-            # LaTeXモードの場合
-            self._on_latex_finished(exit_code)
         else:
             # 単一ファイル処理の場合
             if exit_code == 0:
@@ -209,45 +205,7 @@ class PandocWorker(QObject):
             else:
                 self.stderr_received.emit(f"\n=== 変換失敗 (終了コード: {exit_code}) ===\n")
             self.finished.emit(exit_code)
-            
-    def _on_latex_finished(self, exit_code: int):
-        """LaTeX生成完了時の処理"""
-        if exit_code == 0:
-            self.stdout_received.emit("✓ LaTeXファイル生成成功\n")
-            
-            # 次にPDFを生成
-            self.stdout_received.emit("PDF生成を開始...\n")
-            
-            # LaTeXファイルからPDFを生成するコマンド
-            latex_file = str(Path(self._pdf_output_file).with_suffix('.tex'))
-            
-            # PDF生成用の引数から--include-in-headerを除外
-            pdf_args = []
-            skip_next = False
-            for i, arg in enumerate(self._pdf_extra_args):
-                if skip_next:
-                    skip_next = False
-                    continue
-                if arg == "--include-in-header":
-                    skip_next = True  # 次の引数（ファイルパス）もスキップ
-                    continue
-                pdf_args.append(arg)
-            
-            pdf_cmd = ['pandoc', latex_file, '-o', self._pdf_output_file, '--resource-path', self._pdf_resource_paths] + pdf_args
-            
-            self.stdout_received.emit(f"PDF生成コマンド: {' '.join(pdf_cmd)}\n")
-            
-            # LaTeXモードを解除してPDF生成を開始
-            self._latex_mode = False
-            self.proc.start('pandoc', pdf_cmd[1:])
-        else:
-            self.stderr_received.emit(f"✗ LaTeXファイル生成失敗 (終了コード: {exit_code})\n")
-            # LaTeXモードを解除
-            self._latex_mode = False
-            self.finished.emit(exit_code)
-            
-        
-        
+
 
     def _on_started(self):
         """プロセス開始時の処理"""
