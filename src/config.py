@@ -6,13 +6,8 @@ from pathlib import Path
 import sys
 from typing import Dict, List, Any
 
-# アプリケーションのベースディレクトリを取得
-if getattr(sys, 'frozen', False):
-    # PyInstaller でビルドされた実行ファイルの場合
-    BASE_DIR = Path(sys.executable).resolve().parent
-else:
-    # 開発環境の場合
-    BASE_DIR = Path(__file__).resolve().parent.parent
+# 共通モジュールから定数をインポート
+from common import BASE_DIR
 
 PROFILE_DIR = BASE_DIR / 'profiles'
 PROFILE_DIR.mkdir(exist_ok=True)
@@ -92,12 +87,9 @@ def get_default_profile() -> Dict[str, Any]:
         ],
         "lua_filter": "",  # 追加フィルター用（内蔵フィルターは自動適用）
         "template": "",
-        "css_file": "",
         "bibliography": "",
         "merge_files": True,  # 複数ファイル結合オプション（デフォルト有効）
-        "use_custom_filename": False,  # カスタムファイル名使用オプション
         "output_filename": "",  # カスタム出力ファイル名
-        "max_matrix_cols": 20,  # LaTeX行列の最大列数（デフォルト20）
         "metadata": {}
     }
 

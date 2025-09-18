@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PandocTools is a Windows GUI application for Pandoc document conversion, built with Python and PyQt6. It provides an intuitive interface for converting Markdown files to PDF, HTML, DOCX and other formats using Pandoc, with support for complex LaTeX matrices, file merging, and configuration profiles.
+PandocTools is a Windows GUI application for Pandoc document conversion, built with Python and PyQt6. It provides an intuitive interface for converting Markdown files to PDF, TeX, and DOCX formats using Pandoc, with support for complex LaTeX matrices, file merging, configuration profiles, and project file management.
 
 ## Development Environment Setup
 
@@ -45,12 +45,14 @@ python -m PyInstaller --name "Pandoc GUI Converter" --onefile --noconsole --add-
 - **src/ui_main.py**: Generated PyQt6 UI definitions (auto-generated, do not edit manually)
 - **src/pandoc_process.py**: Asynchronous Pandoc process execution using QProcess
 - **src/config.py**: YAML profile management (load/save/delete configurations)
+- **src/defaults.py**: Pandoc defaults file (project file) processing and conversion
 
 ### Key Features Implementation
-- **File Management**: Drag & drop support, batch processing, file ordering
+- **File Management**: Drag & drop support, batch processing, file ordering, automatic .bib file recognition
 - **Conversion Modes**: Single file, merged files, or individual batch conversion
-- **LaTeX Matrix Support**: Dynamic MaxMatrixCols setting via temporary header files
+- **LaTeX Matrix Support**: Automatic MaxMatrixCols setting via built-in header files
 - **Profile System**: YAML-based configuration saving/loading in profiles/ directory
+- **Project Files**: Pandoc defaults file support for multi-file project management
 - **Real-time Output**: Live process output display using Qt signals
 
 ### Data Flow
@@ -68,12 +70,15 @@ src/
 ├── ui_main.py           # PyQt6 UI definitions
 ├── pandoc_process.py    # Async process execution
 ├── config.py            # Profile management
-└── filters/
-    └── default_filter.lua   # Built-in Lua filter (always applied)
+├── defaults.py          # Pandoc defaults file processing
+├── filters/
+│   └── default_filter.lua   # Built-in Lua filter (always applied)
+└── templates/
+    ├── latex_header_base.tex # LaTeX header with MaxMatrixCols
+    └── default.csl          # Default citation style
 
 profiles/                # YAML configuration files
-├── default.yml          # Default PDF conversion settings  
-├── sample_html.yml      # HTML conversion example
+├── default.yml          # Default PDF conversion settings
 ├── compact.yml          # Compact document (small font, narrow margins)
 ├── presentation.yml     # Presentation format (large font, wide margins)
 └── letter.yml           # Letter paper size format
@@ -94,8 +99,25 @@ extra_args:
   - --pdf-engine=xelatex
   - -V
   - documentclass=bxjsarticle
+  - -V
+  - classoption=pandoc
 merge_files: true
-max_matrix_cols: 20
+```
+
+### Project File Format (Pandoc Defaults)
+```yaml
+input-files:
+  - chapter1.md
+  - chapter2.md
+bibliography:
+  - references.bib
+number-sections: true
+citeproc: true
+variables:
+  fontsize: 12pt
+  papersize: a4paper
+  geometry:
+    - margin=25mm
 ```
 
 ### Document Formatting Options

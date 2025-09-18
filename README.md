@@ -1,6 +1,6 @@
 # Pandoc GUI Converter
 
-Windows用のPandoc GUIアプリケーション - MarkdownファイルをPDF、HTML、DOCXなどに変換
+Windows用のPandoc GUIアプリケーション - MarkdownファイルをPDF、TeX、DOCXに変換
 
 ## 概要
 
@@ -61,17 +61,17 @@ python src/main.py
 
 1. **基本設定**タブで**ファイル選択**ボタンからMarkdownファイルを選択
 2. ファイルリストで順序を調整（↑上へ、↓下へボタンまたは直接ドラッグ）
-3. 出力形式（PDF、HTML、DOCX等）を選択
-4. 必要に応じて出力ディレクトリとカスタムファイル名を設定
+3. 出力形式（PDF、TeX、DOCX）を選択
+4. 必要に応じて出力ディレクトリと出力ファイル名を設定
 5. **変換実行**ボタンをクリック
 
 ### ファイル管理機能
 
 **ファイル追加・管理**:
-- **ファイル選択**: 新規にファイルを選択（既存リストを置き換え）
-- **フォルダ選択**: フォルダ内のMarkdownファイルを一括選択
-- **ファイル追加**: 既存リストにファイルを追加（重複チェック付き）
+- **ファイル選択**: ファイルを選択してリストに追加（重複チェック付き）
+- **フォルダ選択**: フォルダ内のMarkdownファイルを一括追加
 - **全クリア**: ファイルリストを全消去
+- **参考文献ファイル**: .bibファイルは自動的に認識され、変換時に--bibliographyオプションが適用されます
 
 **リスト操作**:
 - **↑上へ/↓下へ**: ファイルの順序を変更
@@ -85,7 +85,7 @@ python src/main.py
 
 **出力ファイル名（結合変換時）**:
 - **自動生成（デフォルト）**: `最初のファイル名_merged.pdf`
-- **カスタム名**: 「カスタムファイル名を使用」にチェックして任意の名前を指定
+- **カスタム名**: 出力ファイル名テキストボックスに任意の名前を入力
 
 ### 変換モード
 
@@ -103,50 +103,38 @@ python src/main.py
 2. 次回以降は**読み込み**で設定を復元
 3. デフォルトプロファイルが用意済み
 
-### 実行される実際のコマンド例
+### プロジェクトファイル（Pandoc Defaults File）
 
-**単一ファイル変換時**:
-```bash
-pandoc input.md -o output.pdf --lua-filter=src/filters/default_filter.lua --wrap=preserve --pdf-engine=xelatex -V documentclass=bxjsarticle -V classoption=pandoc --from markdown+hard_line_breaks
-```
+複数ファイルと設定をプロジェクトとして管理できます：
 
-**複数ファイル結合時（自動ファイル名）**:
-```bash
-pandoc chapter1.md chapter2.md chapter3.md -o chapter1_merged.pdf --lua-filter=src/filters/default_filter.lua --wrap=preserve --pdf-engine=xelatex -V documentclass=bxjsarticle -V classoption=pandoc --from markdown+hard_line_breaks
-```
+**プロジェクトファイルの作成**:
+1. 入力ファイルと設定を行う
+2. **プロジェクト保存**ボタンでYAMLファイルを保存
+3. 次回は**プロジェクト読み込み**で一括復元
 
-**複数ファイル結合時（カスタムファイル名）**:
-```bash
-pandoc chapter1.md chapter2.md chapter3.md -o "完全なマニュアル.pdf" --lua-filter=src/filters/default_filter.lua --wrap=preserve --pdf-engine=xelatex -V documentclass=bxjsarticle -V classoption=pandoc --from markdown+hard_line_breaks
-```
-
-**個別変換時**:
-```bash
-pandoc chapter1.md -o chapter1.pdf --lua-filter=src/filters/default_filter.lua --wrap=preserve --pdf-engine=xelatex -V documentclass=bxjsarticle -V classoption=pandoc --from markdown+hard_line_breaks
-pandoc chapter2.md -o chapter2.pdf --lua-filter=src/filters/default_filter.lua --wrap=preserve --pdf-engine=xelatex -V documentclass=bxjsarticle -V classoption=pandoc --from markdown+hard_line_breaks
-...
-```
+**プロジェクトファイルの特徴**:
+- Pandoc defaults file形式（YAML）で保存
+- 入力ファイル、出力設定、Pandocオプションを一括管理
+- 相対パスで保存され、プロジェクトフォルダ間での移動が可能
+- .bibファイルは自動的に参考文献として認識
 
 ### 高度な設定
 
 **オプション設定**タブで以下を設定可能（縦スクロール対応）：
 - 基本オプション（PDFエンジン、ドキュメントクラス、Markdown拡張等）
-- LaTeX行列最大列数（12列以上の大きな行列を処理する場合に設定）
 - 追加Luaフィルター（内蔵のdefault_filter.luaは常時適用）
 - テンプレートファイル
-- CSSファイル (HTML出力用)
-- 参考文献ファイル
 - チェックボックスオプション（改行保持、目次生成等）
 - カスタムPandoc引数
 
-### LaTeX行列の最大列数設定
+### LaTeX行列のサポート
 
-LaTeXでは、デフォルトで行列の列数が10列に制限されています。12列以上の大きな行列を含むMarkdownファイルを変換する場合、以下の設定が必要です：
+LaTeXでは、デフォルトで行列の列数が10列に制限されています。このアプリケーションでは、MaxMatrixColsを自動的に設定して大きな行列をサポートします。
 
-**設定方法**:
-1. **オプション設定**タブの「LaTeX行列最大列数」で適切な値を設定
-2. デフォルト値は20（0に設定すると無効）
-3. 設定は自動的に一時ファイルとして作成され、変換後に削除されます
+**特徴**:
+- 12列以上の大きな行列が自動的に処理されます
+- 内蔵ヘッダーファイルでMaxMatrixColsが設定されています
+- 元のMarkdownファイルには影響を与えません
 
 **使用例**:
 ```markdown
@@ -157,8 +145,6 @@ b_{11} & b_{12} & b_{13} & b_{14} & b_{15} & b_{16} & b_{17} & b_{18} & b_{19} &
 \end{bmatrix}
 $$
 ```
-
-**注意**: この設定は元のMarkdownファイルに影響を与えず、変換時のみ適用されます。
 
 ### 文字サイズ・余白・レイアウトの調整
 
@@ -238,97 +224,26 @@ $$
 -V classoption=11pt,a4paper,twoside
 ```
 
-## プロファイル例
+## プロジェクトファイル例
 
-### PDF出力 (デフォルト)
 ```yaml
-output_format: pdf
-extra_args:
-  - --wrap=preserve
-  - --pdf-engine=xelatex
-  - -V
-  - documentclass=bxjsarticle
-  - -V
-  - classoption=pandoc
-  - --from
-  - markdown+hard_line_breaks
-```
-
-### HTML出力
-```yaml
-output_format: html
-extra_args:
-  - --wrap=preserve
-  - --standalone
-  - --toc
-  - --number-sections
-```
-
-### コンパクト文書 (compact.yml)
-小さい文字・狭い余白でコンパクトな文書を作成：
-```yaml
-output_format: pdf
-extra_args:
-  - --wrap=preserve
-  - --pdf-engine=xelatex
-  - -V
-  - documentclass=bxjsarticle
-  - -V
-  - classoption=10pt,a4paper
-  - -V
-  - fontsize=10pt
-  - -V
-  - geometry:margin=15mm
-  - -V
-  - linestretch=1.1
-  - --from
-  - markdown+hard_line_breaks
-```
-
-### プレゼン資料 (presentation.yml)
-大きい文字・広い余白で読みやすいプレゼン資料：
-```yaml
-output_format: pdf
-extra_args:
-  - --wrap=preserve
-  - --pdf-engine=xelatex
-  - -V
-  - documentclass=bxjsarticle
-  - -V
-  - classoption=14pt,a4paper
-  - -V
-  - fontsize=14pt
-  - -V
-  - geometry:margin=25mm
-  - -V
-  - linestretch=1.4
-  - --toc
-  - --number-sections
-  - --from
-  - markdown+hard_line_breaks
-```
-
-### レター用紙 (letter.yml)
-アメリカ標準のレター用紙サイズ：
-```yaml
-output_format: pdf
-extra_args:
-  - --wrap=preserve
-  - --pdf-engine=xelatex
-  - -V
-  - documentclass=bxjsarticle
-  - -V
-  - classoption=12pt,letterpaper
-  - -V
-  - fontsize=12pt
-  - -V
-  - papersize=letter
-  - -V
-  - geometry:margin=1in
-  - -V
-  - linestretch=1.2
-  - --from
-  - markdown+hard_line_breaks
+input-files:
+- introduction.md
+- methodology.md
+- results.md
+- conclusion.md
+bibliography:
+- references.bib
+number-sections: true
+citeproc: true
+variables:
+  fontsize: 11pt
+  papersize: a4paper
+  geometry:
+  - top=25mm
+  - bottom=25mm
+  - left=30mm
+  - right=25mm
 ```
 
 ## 実行ファイルの作成
@@ -388,26 +303,6 @@ release/
 2. 配布先のPCに **Pandoc** がインストールされている必要があります
 3. **TeX Live** または **MiKTeX** が PDF 生成に必要です
 
-### 6. トラブルシューティング
-
-**ビルドエラーが発生する場合:**
-```powershell
-# キャッシュをクリア
-python -m PyInstaller --clean --onefile src/main.py
-```
-
-**実行ファイルが起動しない場合:**
-```powershell
-# コンソール表示有りでデバッグ
-python -m PyInstaller --onefile --console src/main.py
-```
-
-**ファイルサイズを小さくしたい場合:**
-```powershell
-# UPX圧縮を使用（別途UPXのインストールが必要）
-python -m PyInstaller --onefile --upx-dir=C:\upx src/main.py
-```
-
 ## トラブルシューティング
 
 ### Pandocが見つからない場合
@@ -421,10 +316,6 @@ python -m PyInstaller --onefile --upx-dir=C:\upx src/main.py
 ### パフォーマンス問題
 - 大きなファイルの変換には時間がかかります
 - 複数ファイル変換時は順次処理のため待機時間があります
-
-## ライセンス
-
-MIT License
 
 ## 開発者向け情報
 

@@ -14,7 +14,6 @@ extra_args:
 - --from
 - markdown+hard_line_breaks
 lua_filter: ''
-max_matrix_cols: 20
 merge_files: true
 output_filename: ''
 output_format: pdf

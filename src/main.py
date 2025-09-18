@@ -14,20 +14,13 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QTimer, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QCloseEvent
 
-# アプリケーションのベースディレクトリを取得
-if getattr(sys, 'frozen', False):
-    # PyInstaller でビルドされた実行ファイルの場合
-    # EXEファイルと同じディレクトリからリソースを読み込み
-    BASE_DIR = Path(sys.executable).resolve().parent
-    RESOURCE_DIR = BASE_DIR
-else:
-    # 開発環境の場合
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    RESOURCE_DIR = Path(__file__).resolve().parent
+# 共通モジュールから定数をインポート
+from common import BASE_DIR, RESOURCE_DIR
 
 from ui_main import Ui_MainWindow
 from pandoc_process import PandocWorker
 from config import load_profile, save_profile, get_available_profiles, delete_profile, get_default_profile
+from defaults import load_defaults_file, save_defaults_file, defaults_to_app_config, app_config_to_defaults
 
 
 class MainWindow(QMainWindow):
@@ -44,9 +37,10 @@ class MainWindow(QMainWindow):
         self.worker.stderr_received.connect(self.append_log)
         self.worker.finished.connect(self.on_conversion_finished)
         self.worker.started.connect(self.on_conversion_started)
+
+        # プロジェクトファイル関連
+        self.current_project_path = None
         
-        # 一時ファイル管理
-        self.temp_header_file = None
         
         # イベント接続
         self._connect_events()
@@ -92,7 +86,6 @@ class MainWindow(QMainWindow):
         # 基本設定タブ
         self.ui.btn_select_files.clicked.connect(self.select_files)
         self.ui.btn_select_folder.clicked.connect(self.select_folder)
-        self.ui.btn_add_files.clicked.connect(self.add_files)
         self.ui.btn_clear_files.clicked.connect(self.clear_file_list)
         self.ui.btn_move_up.clicked.connect(self.move_file_up)
         self.ui.btn_move_down.clicked.connect(self.move_file_down)
@@ -102,8 +95,6 @@ class MainWindow(QMainWindow):
         # 詳細設定タブ
         self.ui.btn_select_lua.clicked.connect(self.select_lua_filter)
         self.ui.btn_select_template.clicked.connect(self.select_template)
-        self.ui.btn_select_css.clicked.connect(self.select_css_file)
-        self.ui.btn_select_bib.clicked.connect(self.select_bibliography)
         
         # プロファイル管理
         self.ui.btn_load_profile.clicked.connect(self.load_profile)
@@ -111,7 +102,12 @@ class MainWindow(QMainWindow):
         self.ui.btn_delete_profile.clicked.connect(self.delete_profile)
         self.ui.btn_refresh_profiles.clicked.connect(self.refresh_profiles)
         self.ui.profile_select.currentTextChanged.connect(self.on_profile_selected)
-        
+
+        # プロジェクトファイル管理
+        self.ui.btn_load_project.clicked.connect(self.load_project_file)
+        self.ui.btn_save_project.clicked.connect(self.save_project_file)
+        self.ui.btn_save_project_as.clicked.connect(self.save_project_file_as)
+
         # 実行関連
         self.ui.btn_run.clicked.connect(self.start_conversion)
         self.ui.btn_stop.clicked.connect(self.stop_conversion)
@@ -136,23 +132,10 @@ class MainWindow(QMainWindow):
         self.ui.statusbar.showMessage("準備完了 - Pandocが利用可能かご確認ください")
         
     def select_files(self):
-        """ファイルを選択（リストを置き換え）"""
+        """ファイルを選択（リストに追加）"""
         file_paths, _ = QFileDialog.getOpenFileNames(
-            self, "Markdownファイルを選択", "",
-            "Markdown files (*.md *.markdown *.mdown *.mkd);;All files (*)"
-        )
-        if file_paths:
-            self.ui.file_list.clear()
-            for file_path in file_paths:
-                item = QListWidgetItem(Path(file_path).name)
-                item.setData(256, file_path)  # フルパスをデータとして保存
-                self.ui.file_list.addItem(item)
-                
-    def add_files(self):
-        """ファイルを追加（既存リストに追加）"""
-        file_paths, _ = QFileDialog.getOpenFileNames(
-            self, "Markdownファイルを追加", "",
-            "Markdown files (*.md *.markdown *.mdown *.mkd);;All files (*)"
+            self, "ファイルを選択", "",
+            "Markdown files (*.md *.markdown *.mdown *.mkd);;Bibliography files (*.bib *.json *.yaml);;All files (*)"
         )
         if file_paths:
             for file_path in file_paths:
@@ -162,10 +145,11 @@ class MainWindow(QMainWindow):
                     if self.ui.file_list.item(i).data(256) == file_path:
                         is_duplicate = True
                         break
-                
+
                 if not is_duplicate:
-                    item = QListWidgetItem(Path(file_path).name)
-                    item.setData(256, file_path)
+                    display_name = self._get_file_display_name(file_path)
+                    item = QListWidgetItem(display_name)
+                    item.setData(256, file_path)  # フルパスをデータとして保存
                     self.ui.file_list.addItem(item)
                 
     def select_folder(self):
@@ -180,7 +164,8 @@ class MainWindow(QMainWindow):
             if md_files:
                 self.ui.file_list.clear()
                 for md_file in md_files:
-                    item = QListWidgetItem(md_file.name)
+                    display_name = self._get_file_display_name(str(md_file))
+                    item = QListWidgetItem(display_name)
                     item.setData(256, str(md_file))
                     self.ui.file_list.addItem(item)
             else:
@@ -234,21 +219,11 @@ class MainWindow(QMainWindow):
         if file_path:
             self.ui.template_file.setText(file_path)
             
-    def select_css_file(self):
-        """CSSファイルを選択"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "CSSファイルを選択", "", "CSS files (*.css);;All files (*)"
-        )
-        if file_path:
-            self.ui.css_file.setText(file_path)
-            
-    def select_bibliography(self):
-        """参考文献ファイルを選択"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "参考文献ファイルを選択", "", "Bibliography files (*.bib *.json *.yaml);;All files (*)"
-        )
-        if file_path:
-            self.ui.bibliography.setText(file_path)
+
+    def _get_file_display_name(self, file_path: str) -> str:
+        """ファイルの表示名を生成"""
+        path = Path(file_path)
+        return path.name
             
     def collect_extra_args(self) -> List[str]:
         """UIから追加引数を収集"""
@@ -266,6 +241,9 @@ class MainWindow(QMainWindow):
             
         if self.ui.standalone.isChecked():
             args.extend(["--standalone"])
+
+        if self.ui.citeproc.isChecked():
+            args.extend(["--citeproc"])
         
         # PDF エンジン
         pdf_engine = self.ui.pdf_engine.currentText()
@@ -298,7 +276,7 @@ class MainWindow(QMainWindow):
         margin_left = self.ui.margin_left.text().strip()
         margin_right = self.ui.margin_right.text().strip()
         footskip = self.ui.footskip.text().strip()
-        
+
         margin_parts = []
         if margin_top:
             margin_parts.append(f"top={margin_top}")
@@ -310,7 +288,7 @@ class MainWindow(QMainWindow):
             margin_parts.append(f"right={margin_right}")
         if footskip:
             margin_parts.append(f"footskip={footskip}")
-        
+
         if margin_parts:
             args.extend(["-V", f"geometry:{','.join(margin_parts)}"])
             
@@ -334,14 +312,12 @@ class MainWindow(QMainWindow):
         template = self.ui.template_file.text().strip()
         if template:
             args.extend([f"--template={template}"])
-            
-        css_file = self.ui.css_file.text().strip()
-        if css_file:
-            args.extend([f"--css={css_file}"])
-            
-        bibliography = self.ui.bibliography.text().strip()
-        if bibliography:
-            args.extend([f"--bibliography={bibliography}"])
+
+        # 参考文献スタイル（default.csl）を常に適用
+        csl_path = RESOURCE_DIR / "templates" / "default.csl"
+        if csl_path.exists():
+            args.extend(["--csl", str(csl_path)])
+
             
         # カスタム引数
         custom_args_text = self.ui.custom_args.toPlainText().strip()
@@ -355,16 +331,26 @@ class MainWindow(QMainWindow):
         
     def start_conversion(self):
         """変換を開始"""
-        # 入力ファイルの確認
+        # 入力ファイルの確認と分離
+        all_files = []
         input_files = []
-        
+        bibliography_files = []
+
         # ファイルリストから取得
         for i in range(self.ui.file_list.count()):
             item = self.ui.file_list.item(i)
-            input_files.append(item.data(256))
-                
+            file_path = item.data(256)
+            all_files.append(file_path)
+
+            # ファイル種別で分離
+            path = Path(file_path)
+            if path.suffix.lower() == '.bib':
+                bibliography_files.append(file_path)
+            else:
+                input_files.append(file_path)
+
         if not input_files:
-            QMessageBox.warning(self, "エラー", "入力ファイルが選択されていません。")
+            QMessageBox.warning(self, "エラー", "変換対象の入力ファイル（Markdownなど）が選択されていません。")
             return
             
         # 出力設定の確認
@@ -377,52 +363,29 @@ class MainWindow(QMainWindow):
             
         # 追加引数を収集
         extra_args = self.collect_extra_args()
+
+        # 参考文献ファイルを--bibliography引数として追加
+        for bib_file in bibliography_files:
+            extra_args.extend(["--bibliography", bib_file])
         
-        # LaTeXファイル出力オプション
-        output_latex = self.ui.output_latex.isChecked() and output_format == "pdf"
         
-        # LaTeX行列の最大列数設定を動的に追加
-        max_matrix_cols = self.ui.max_matrix_cols.value()
-        if max_matrix_cols > 0:
-            # 一時ファイルを作成してLaTeXコマンドを書き込む
-            try:
-                # 基本ヘッダーファイルを読み込み
-                header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
-                if header_base_path.exists():
-                    with open(header_base_path, 'r', encoding='utf-8') as f:
-                        header_content = f.read()
-                else:
-                    # フォールバック（ファイルがない場合）
-                    header_content = "\\usepackage{amsmath,amssymb,amsthm,mathrsfs}\n\\usepackage{unicode-math}\n\\renewcommand\\boldsymbol{\\symbf}\n\\newcommand\\bm{\\symbf}"
-                
-                # 動的な設定を追加
-                header_content += f"\n\n% Dynamic settings\n\\setcounter{{MaxMatrixCols}}{{{max_matrix_cols}}}\n"
-                
-                # 一時ファイルに書き込み
-                self.temp_header_file = tempfile.NamedTemporaryFile(mode='w', suffix='.tex', delete=False)
-                self.temp_header_file.write(header_content)
-                self.temp_header_file.close()
-                extra_args.extend(["--include-in-header", self.temp_header_file.name])
-                self.append_log(f"一時ファイルを作成しました: {self.temp_header_file.name}\n")
-            except Exception as e:
-                self.append_log(f"一時ファイルの作成に失敗しました: {e}\n")
-                self.temp_header_file = None
+        # LaTeXヘッダーファイルを直接include
+        header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
+        if header_base_path.exists():
+            extra_args.extend(["--include-in-header", str(header_base_path)])
         
         # 変換開始
         if len(input_files) == 1:
             # 単一ファイル変換
             input_file = input_files[0]
             output_file = Path(output_dir) / f"{Path(input_file).stem}.{output_format}"
-            if output_latex:
-                self.worker.run_with_latex(input_file, str(output_file), extra_args)
-            else:
-                self.worker.run(input_file, str(output_file), extra_args)
+            self.worker.run(input_file, str(output_file), extra_args)
         else:
             # 複数ファイル処理
             if self.ui.merge_files.isChecked():
                 # 結合変換：複数ファイルを一つにまとめる
-                if self.ui.use_custom_filename.isChecked() and self.ui.output_filename.text().strip():
-                    # カスタムファイル名を使用
+                if self.ui.output_filename.text().strip():
+                    # 出力ファイル名が指定されている場合
                     custom_name = self.ui.output_filename.text().strip()
                     # 拡張子を除去（もしあれば）
                     custom_name = custom_name.rsplit('.', 1)[0]
@@ -431,16 +394,10 @@ class MainWindow(QMainWindow):
                     # デフォルトファイル名を生成
                     first_file_name = Path(input_files[0]).stem
                     output_file = Path(output_dir) / f"{first_file_name}_merged.{output_format}"
-                if output_latex:
-                    self.worker.run_merge_with_latex(input_files, str(output_file), extra_args)
-                else:
-                    self.worker.run_merge(input_files, str(output_file), extra_args)
+                self.worker.run_merge(input_files, str(output_file), extra_args)
             else:
                 # 一括変換：各ファイルを個別に変換
-                if output_latex:
-                    self.worker.run_batch_with_latex(input_files, output_dir, output_format, extra_args)
-                else:
-                    self.worker.run_batch(input_files, output_dir, output_format, extra_args)
+                self.worker.run_batch(input_files, output_dir, output_format, extra_args)
             
         self.current_output_dir = output_dir
         
@@ -459,16 +416,6 @@ class MainWindow(QMainWindow):
         self.worker.terminate_process()
         self.append_log("変換を停止しました。\n")
         
-        # 一時ファイルを削除
-        if self.temp_header_file:
-            try:
-                os.unlink(self.temp_header_file.name)
-                self.append_log("一時ファイルを削除しました\n")
-            except Exception as e:
-                self.append_log(f"一時ファイルの削除に失敗しました: {e}\n")
-            finally:
-                self.temp_header_file = None
-        
     def on_conversion_started(self):
         """変換開始時の処理"""
         self.ui.btn_run.setEnabled(False)
@@ -484,16 +431,6 @@ class MainWindow(QMainWindow):
         self.ui.btn_run.setEnabled(True)
         self.ui.btn_stop.setEnabled(False)
         self.ui.progress_bar.setVisible(False)
-        
-        # 一時ファイルを削除
-        if self.temp_header_file:
-            try:
-                os.unlink(self.temp_header_file.name)
-                self.append_log("一時ファイルを削除しました\n")
-            except Exception as e:
-                self.append_log(f"一時ファイルの削除に失敗しました: {e}\n")
-            finally:
-                self.temp_header_file = None
         
         if exit_code == 0:
             self.ui.btn_open_output.setEnabled(True)
@@ -591,6 +528,7 @@ class MainWindow(QMainWindow):
         self.ui.wrap_preserve.setChecked(False)
         self.ui.table_of_contents.setChecked(False)
         self.ui.number_sections.setChecked(False)
+        self.ui.citeproc.setChecked(False)
         self.ui.standalone.setChecked(False)
         
         # テキストフィールドをリセット
@@ -631,6 +569,9 @@ class MainWindow(QMainWindow):
             elif arg == "--standalone":
                 self.ui.standalone.setChecked(True)
                 processed = True
+            elif arg == "--citeproc":
+                self.ui.citeproc.setChecked(True)
+                processed = True
             elif arg.startswith("--pdf-engine="):
                 engine = arg.split("=", 1)[1]
                 index = self.ui.pdf_engine.findText(engine)
@@ -669,22 +610,7 @@ class MainWindow(QMainWindow):
                         self.ui.margin_right.setText(margin_value)
                     else:
                         # top=2cm,bottom=2cm,left=3cm,right=3cm の形式を解析
-                        geometry_parts = [part.strip() for part in geometry.split(',')]
-                        for part in geometry_parts:
-                            if '=' in part:
-                                key, value = part.split('=', 1)
-                                key = key.strip()
-                                value = value.strip()
-                                if key == 'top':
-                                    self.ui.margin_top.setText(value)
-                                elif key == 'bottom':
-                                    self.ui.margin_bottom.setText(value)
-                                elif key == 'left':
-                                    self.ui.margin_left.setText(value)
-                                elif key == 'right':
-                                    self.ui.margin_right.setText(value)
-                                elif key == 'footskip':
-                                    self.ui.footskip.setText(value)
+                        self._parse_geometry_string_to_ui(geometry)
                     processed = True
                 
                 if processed:
@@ -711,18 +637,13 @@ class MainWindow(QMainWindow):
         # ファイルパス系
         self.ui.lua_filter.setText(profile_data.get('lua_filter', ''))
         self.ui.template_file.setText(profile_data.get('template', ''))
-        self.ui.css_file.setText(profile_data.get('css_file', ''))
-        self.ui.bibliography.setText(profile_data.get('bibliography', ''))
         
         # 結合オプション
         self.ui.merge_files.setChecked(profile_data.get('merge_files', False))
         
         # カスタムファイル名
-        self.ui.use_custom_filename.setChecked(profile_data.get('use_custom_filename', False))
         self.ui.output_filename.setText(profile_data.get('output_filename', ''))
         
-        # LaTeX行列の最大列数
-        self.ui.max_matrix_cols.setValue(profile_data.get('max_matrix_cols', 20))
         
     def save_current_profile(self):
         """現在の設定をプロファイルとして保存"""
@@ -737,12 +658,8 @@ class MainWindow(QMainWindow):
             "extra_args": self.collect_extra_args(),
             "lua_filter": self.ui.lua_filter.text().strip(),
             "template": self.ui.template_file.text().strip(),
-            "css_file": self.ui.css_file.text().strip(),
-            "bibliography": self.ui.bibliography.text().strip(),
             "merge_files": self.ui.merge_files.isChecked(),
-            "use_custom_filename": self.ui.use_custom_filename.isChecked(),
             "output_filename": self.ui.output_filename.text().strip(),
-            "max_matrix_cols": self.ui.max_matrix_cols.value(),
         }
         
         if save_profile(profile_name, profile_data):
@@ -774,7 +691,228 @@ class MainWindow(QMainWindow):
                 self.refresh_profiles()
             else:
                 QMessageBox.warning(self, "エラー", "プロファイルの削除に失敗しました。")
-                
+
+    def load_project_file(self):
+        """プロジェクトファイル（defaults file）を読み込み"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "プロジェクトファイルを選択", "",
+            "YAML files (*.yaml *.yml);;All files (*)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            # defaults fileを読み込み
+            defaults_data = load_defaults_file(file_path)
+            project_dir = Path(file_path).parent
+
+            # アプリケーション内部形式に変換
+            app_config = defaults_to_app_config(defaults_data, project_dir)
+
+            # UIに適用
+            self.apply_project_to_ui(app_config, defaults_data)
+
+            # 現在のプロジェクトファイルパスを保存
+            self.current_project_path = file_path
+            self.ui.current_project_file.setText(str(Path(file_path).name))
+
+
+        except Exception as e:
+            QMessageBox.warning(self, "エラー", f"プロジェクトファイルの読み込みに失敗しました: {e}")
+
+    def apply_project_to_ui(self, app_config: Dict[str, Any], defaults_data: Dict[str, Any]):
+        """プロジェクト設定をUIに適用"""
+        # 入力ファイルをファイルリストに設定
+        input_files = app_config.get('input_files', [])
+        if input_files:
+            self.ui.file_list.clear()
+            for file_path in input_files:
+                if Path(file_path).exists():
+                    display_name = self._get_file_display_name(file_path)
+                    item = QListWidgetItem(display_name)
+                    item.setData(256, file_path)
+                    self.ui.file_list.addItem(item)
+                else:
+                    self.append_log(f"警告: ファイルが見つかりません: {file_path}\n")
+
+
+        # 出力ファイル名のみを設定
+        if app_config.get('output_file'):
+            output_path = Path(app_config['output_file'])
+            # ファイル名のみを設定（ディレクトリは設定しない）
+            self.ui.output_filename.setText(output_path.name)
+
+        # 出力形式
+        output_format = app_config.get('output_format', 'pdf')
+        index = self.ui.output_format.findText(output_format)
+        if index >= 0:
+            self.ui.output_format.setCurrentIndex(index)
+
+        # 複数ファイルの結合設定（defaults fileでは基本的に結合前提）
+        if len(input_files) > 1:
+            self.ui.merge_files.setChecked(True)
+
+        # 基本的なフラグ設定
+        self.ui.table_of_contents.setChecked(defaults_data.get('toc', False))
+        self.ui.number_sections.setChecked(defaults_data.get('number-sections', False))
+        self.ui.citeproc.setChecked(defaults_data.get('citeproc', False))
+        self.ui.standalone.setChecked(defaults_data.get('standalone', False))
+
+        # Variables設定
+        variables = defaults_data.get('variables', {})
+        if 'fontsize' in variables:
+            font_size = variables['fontsize']
+            index = self.ui.font_size.findText(font_size)
+            if index >= 0:
+                self.ui.font_size.setCurrentIndex(index)
+
+        if 'papersize' in variables:
+            paper_size = variables['papersize']
+            index = self.ui.paper_size.findText(paper_size)
+            if index >= 0:
+                self.ui.paper_size.setCurrentIndex(index)
+
+        # クラスオプションをデフォルト値に設定（papersizeはvariablesで管理）
+        self.ui.class_option.setText("pandoc")
+
+        # Geometry設定（余白）
+        if 'geometry' in variables:
+            geometry = variables['geometry']
+            self._parse_geometry_to_ui(geometry)
+
+        # PDF エンジン
+        if 'pdf-engine' in defaults_data:
+            engine = defaults_data['pdf-engine']
+            index = self.ui.pdf_engine.findText(engine)
+            if index >= 0:
+                self.ui.pdf_engine.setCurrentIndex(index)
+
+
+        # ログ出力
+        self.append_log(f"プロジェクトファイルを読み込みました: {len(input_files)}個のファイル\n")
+
+    def _parse_geometry_to_ui(self, geometry):
+        """geometry設定をUIの余白フィールドにパース"""
+        if isinstance(geometry, list):
+            # リスト形式の場合
+            for part in geometry:
+                if '=' in part:
+                    self._parse_geometry_part(part)
+        elif isinstance(geometry, str):
+            # 文字列形式の場合（旧形式サポート）
+            if '=' in geometry:
+                if geometry.startswith('margin='):
+                    # margin=25mm の場合
+                    margin_value = geometry.split('=', 1)[1]
+                    self.ui.margin_top.setText(margin_value)
+                    self.ui.margin_bottom.setText(margin_value)
+                    self.ui.margin_left.setText(margin_value)
+                    self.ui.margin_right.setText(margin_value)
+                else:
+                    # top=20mm,bottom=25mm,left=15mm,right=15mm の形式
+                    self._parse_geometry_string_to_ui(geometry)
+
+    def _parse_geometry_string_to_ui(self, geometry_str: str):
+        """geometry設定文字列をUIの余白フィールドに解析して設定"""
+        parts = [part.strip() for part in geometry_str.split(',')]
+        for part in parts:
+            if '=' in part:
+                self._parse_geometry_part(part)
+
+    def _parse_geometry_part(self, part: str):
+        """geometry設定の個別項目をUIに設定"""
+        key, value = part.split('=', 1)
+        key = key.strip()
+        value = value.strip()
+        if key == 'top':
+            self.ui.margin_top.setText(value)
+        elif key == 'bottom':
+            self.ui.margin_bottom.setText(value)
+        elif key == 'left':
+            self.ui.margin_left.setText(value)
+        elif key == 'right':
+            self.ui.margin_right.setText(value)
+        elif key == 'footskip':
+            self.ui.footskip.setText(value)
+
+    def save_project_file(self):
+        """現在のプロジェクトファイルに保存"""
+        if not self.current_project_path:
+            # 新規保存
+            self.save_project_file_as()
+            return
+
+        self._save_project_to_file(self.current_project_path)
+
+    def save_project_file_as(self):
+        """プロジェクトファイルを名前を付けて保存"""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "プロジェクトファイルを保存", "",
+            "YAML files (*.yaml *.yml);;All files (*)"
+        )
+
+        if not file_path:
+            return
+
+        # 拡張子がない場合は.yamlを追加
+        if not file_path.lower().endswith(('.yaml', '.yml')):
+            file_path += '.yaml'
+
+        self._save_project_to_file(file_path)
+        self.current_project_path = file_path
+        self.ui.current_project_file.setText(str(Path(file_path).name))
+
+    def _save_project_to_file(self, file_path: str):
+        """プロジェクトファイルを指定パスに保存"""
+        try:
+            # 現在のUI設定を収集
+            input_files = []
+            for i in range(self.ui.file_list.count()):
+                item = self.ui.file_list.item(i)
+                input_files.append(item.data(256))
+
+            if not input_files:
+                QMessageBox.warning(self, "エラー", "入力ファイルが選択されていません。")
+                return
+
+            # アプリケーション内部形式の設定を作成
+            app_config = {
+                'input_files': input_files,
+                'output_format': self.ui.output_format.currentText(),
+                'extra_args': self.collect_extra_args(),
+                'template': self.ui.template_file.text().strip(),
+                'lua_filter': self.ui.lua_filter.text().strip(),
+                'metadata': {}
+            }
+
+            # 出力ファイル名のみを設定（ディレクトリは含めない）
+            if self.ui.output_filename.text().strip():
+                app_config['output_file'] = self.ui.output_filename.text().strip()
+
+            # プロジェクトディレクトリからの相対パスに変換
+            project_dir = Path(file_path).parent
+            relative_input_files = []
+            for file_path_abs in input_files:
+                try:
+                    rel_path = Path(file_path_abs).relative_to(project_dir)
+                    relative_input_files.append(str(rel_path))
+                except ValueError:
+                    # 相対パスにできない場合は絶対パスを使用
+                    relative_input_files.append(file_path_abs)
+
+            # defaults形式に変換
+            defaults_data = app_config_to_defaults(app_config, relative_input_files)
+
+            # ファイルに保存
+            if save_defaults_file(file_path, defaults_data):
+                QMessageBox.information(self, "完了", f"プロジェクトファイル '{Path(file_path).name}' を保存しました。")
+            else:
+                QMessageBox.warning(self, "エラー", "プロジェクトファイルの保存に失敗しました。")
+
+        except Exception as e:
+            QMessageBox.warning(self, "エラー", f"プロジェクトファイルの保存に失敗しました: {e}")
+
     def dragEnterEvent(self, event: QDragEnterEvent):
         """ドラッグエンター時の処理"""
         if event.mimeData().hasUrls():
@@ -785,31 +923,97 @@ class MainWindow(QMainWindow):
         files = []
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
-            if file_path.lower().endswith(('.md', '.markdown', '.mdown', '.mkd')):
+            if file_path.lower().endswith(('.md', '.markdown', '.mdown', '.mkd', '.bib', '.json', '.yaml', '.yml')):
                 files.append(file_path)
-                                 
+
         if files:
-            self.ui.file_list.clear()
             for file_path in files:
-                item = QListWidgetItem(Path(file_path).name)
-                item.setData(256, file_path)
-                self.ui.file_list.addItem(item)
+                # YAMLファイルの特別処理：Pandoc defaults fileかチェック
+                if file_path.lower().endswith(('.yaml', '.yml')):
+                    if self.is_pandoc_defaults_file(file_path):
+                        # プロジェクトファイルとして読み込み
+                        self.load_project_file_direct(file_path)
+                        continue
+
+                # その他のファイルは通常の入力ファイルとして処理
+                if file_path.lower().endswith(('.md', '.markdown', '.mdown', '.mkd', '.bib', '.json', '.yaml', '.yml')):
+                    # 重複チェック
+                    is_duplicate = False
+                    for i in range(self.ui.file_list.count()):
+                        if self.ui.file_list.item(i).data(256) == file_path:
+                            is_duplicate = True
+                            break
+
+                    if not is_duplicate:
+                        display_name = self._get_file_display_name(file_path)
+                        item = QListWidgetItem(display_name)
+                        item.setData(256, file_path)
+                        self.ui.file_list.addItem(item)
     
+    def is_pandoc_defaults_file(self, file_path: str) -> bool:
+        """
+        YAMLファイルがPandoc defaults fileかを判定
+
+        Args:
+            file_path: YAMLファイルのパス
+
+        Returns:
+            Pandoc defaults fileの場合 True
+        """
+        try:
+            import yaml
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+
+            if not isinstance(data, dict):
+                return False
+
+            # Pandoc defaults fileの特徴的なキーをチェック
+            pandoc_keys = [
+                'input-files', 'output-file', 'variables', 'metadata',
+                'from', 'to', 'bibliography', 'toc', 'number-sections',
+                'citeproc', 'pdf-engine', 'template', 'filters', 'standalone'
+            ]
+
+            # いずれかのキーが存在すればPandoc defaults fileと判定
+            return any(key in data for key in pandoc_keys)
+
+        except Exception:
+            return False
+
+    def load_project_file_direct(self, file_path: str):
+        """
+        ファイルパスを直接指定してプロジェクトファイルを読み込み
+
+        Args:
+            file_path: プロジェクトファイルのパス
+        """
+        try:
+            # defaults fileを読み込み
+            defaults_data = load_defaults_file(file_path)
+            project_dir = Path(file_path).parent
+
+            # アプリケーション内部形式に変換
+            app_config = defaults_to_app_config(defaults_data, project_dir)
+
+            # UIに適用
+            self.apply_project_to_ui(app_config, defaults_data)
+
+            # 現在のプロジェクトファイルパスを保存
+            self.current_project_path = file_path
+            self.ui.current_project_file.setText(str(Path(file_path).name))
+
+            self.append_log(f"プロジェクトファイルを読み込みました: {Path(file_path).name}\n")
+
+        except Exception as e:
+            QMessageBox.warning(self, "エラー", f"プロジェクトファイルの読み込みに失敗しました: {e}")
+
     def closeEvent(self, event: QCloseEvent):
         """アプリケーション終了時の処理"""
-        # 一時ファイルを削除
-        if self.temp_header_file:
-            try:
-                os.unlink(self.temp_header_file.name)
-            except Exception:
-                pass  # 終了時はエラーを無視
-            finally:
-                self.temp_header_file = None
-        
         # 実行中のプロセスを停止
         if self.worker.proc.state() != self.worker.proc.ProcessState.NotRunning:
             self.worker.terminate_process()
-            
+
         super().closeEvent(event)
 
 

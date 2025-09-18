@@ -48,9 +48,6 @@ class Ui_MainWindow:
         # ステータスバー
         self._setup_status_bar(MainWindow)
         
-    def _on_custom_filename_changed(self, state):
-        """カスタムファイル名チェックボックスの状態変更時の処理"""
-        self.output_filename.setEnabled(state == 2)  # Qt.CheckState.Checked = 2
         
     def _setup_basic_tab(self):
         """基本設定タブの設定"""
@@ -67,17 +64,14 @@ class Ui_MainWindow:
         file_buttons_layout = QHBoxLayout()
         self.btn_select_files = QPushButton("ファイル選択")
         self.btn_select_folder = QPushButton("フォルダ選択")
-        self.btn_add_files = QPushButton("ファイル追加")
         self.btn_clear_files = QPushButton("全クリア")
-        
+
         self.btn_select_files.setMinimumWidth(100)
         self.btn_select_folder.setMinimumWidth(100)
-        self.btn_add_files.setMinimumWidth(100)
         self.btn_clear_files.setMinimumWidth(100)
-        
+
         file_buttons_layout.addWidget(self.btn_select_files)
         file_buttons_layout.addWidget(self.btn_select_folder)
-        file_buttons_layout.addWidget(self.btn_add_files)
         file_buttons_layout.addWidget(self.btn_clear_files)
         file_buttons_layout.addStretch()
         input_layout.addLayout(file_buttons_layout)
@@ -123,14 +117,43 @@ class Ui_MainWindow:
         input_layout.addLayout(multi_option_layout)
         
         layout.addWidget(input_group)
-        
+
+        # プロジェクトファイル設定
+        project_group = QGroupBox("プロジェクトファイル（Pandoc defaults file）")
+        project_layout = QFormLayout(project_group)
+
+        # 現在のプロジェクトファイル表示
+        self.current_project_file = QLineEdit()
+        self.current_project_file.setReadOnly(True)
+        self.current_project_file.setPlaceholderText("プロジェクトファイルが読み込まれていません")
+        project_layout.addRow("現在のファイル:", self.current_project_file)
+
+        # プロジェクトファイル操作ボタン
+        project_buttons_layout = QHBoxLayout()
+        self.btn_load_project = QPushButton("読み込み")
+        self.btn_save_project = QPushButton("保存")
+        self.btn_save_project_as = QPushButton("名前を付けて保存")
+
+        self.btn_load_project.setMinimumWidth(100)
+        self.btn_save_project.setMinimumWidth(100)
+        self.btn_save_project_as.setMinimumWidth(120)
+
+        project_buttons_layout.addWidget(self.btn_load_project)
+        project_buttons_layout.addWidget(self.btn_save_project)
+        project_buttons_layout.addWidget(self.btn_save_project_as)
+        project_buttons_layout.addStretch()
+
+        project_layout.addRow("操作:", project_buttons_layout)
+
+        layout.addWidget(project_group)
+
         # 出力設定
         output_group = QGroupBox("出力設定")
         output_layout = QFormLayout(output_group)
         
         # 出力形式
         self.output_format = QComboBox()
-        self.output_format.addItems(["pdf", "html", "docx", "odt", "epub", "tex"])
+        self.output_format.addItems(["pdf", "tex", "docx"])
         output_layout.addRow("出力形式:", self.output_format)
         
         # 出力ディレクトリ
@@ -147,20 +170,10 @@ class Ui_MainWindow:
         output_name_layout = QHBoxLayout()
         self.output_filename = QLineEdit()
         self.output_filename.setPlaceholderText("出力ファイル名（空の場合は自動生成）")
-        self.use_custom_filename = QCheckBox("カスタムファイル名を使用")
-        self.use_custom_filename.stateChanged.connect(self._on_custom_filename_changed)
-        
-        output_name_layout.addWidget(self.use_custom_filename)
         output_name_layout.addWidget(self.output_filename)
         output_layout.addRow("出力ファイル名:", output_name_layout)
         
-        # 初期状態では無効化
-        self.output_filename.setEnabled(False)
         
-        # LaTeXファイル出力オプション
-        self.output_latex = QCheckBox("LaTeXファイルも出力する（PDF出力時のみ、デバッグ用）")
-        self.output_latex.setChecked(False)  # デフォルトはFalse
-        output_layout.addRow("", self.output_latex)
         
         layout.addWidget(output_group)
         
@@ -241,12 +254,6 @@ class Ui_MainWindow:
         
         layout.addWidget(margin_group)
         
-        # LaTeX行列の最大列数
-        self.max_matrix_cols = QSpinBox()
-        self.max_matrix_cols.setRange(0, 100)  # 0は無効（オプション追加なし）
-        self.max_matrix_cols.setValue(20)  # デフォルト値
-        self.max_matrix_cols.setSpecialValueText("無効")  # 0の場合の表示
-        basic_options_layout.addRow("LaTeX行列最大列数:", self.max_matrix_cols)
         
         layout.addWidget(basic_options_group)
         
@@ -277,23 +284,7 @@ class Ui_MainWindow:
         template_layout.addWidget(self.btn_select_template)
         filter_layout.addRow("テンプレート:", template_layout)
         
-        # CSS (HTML出力用)
-        css_layout = QHBoxLayout()
-        self.css_file = QLineEdit()
-        self.css_file.setPlaceholderText("CSSファイルのパス (HTML出力用)")
-        self.btn_select_css = QPushButton("選択")
-        css_layout.addWidget(self.css_file)
-        css_layout.addWidget(self.btn_select_css)
-        filter_layout.addRow("CSSファイル:", css_layout)
         
-        # 参考文献
-        bib_layout = QHBoxLayout()
-        self.bibliography = QLineEdit()
-        self.bibliography.setPlaceholderText("参考文献ファイルのパス (.bib)")
-        self.btn_select_bib = QPushButton("選択")
-        bib_layout.addWidget(self.bibliography)
-        bib_layout.addWidget(self.btn_select_bib)
-        filter_layout.addRow("参考文献:", bib_layout)
         
         layout.addWidget(filter_group)
         
@@ -307,13 +298,16 @@ class Ui_MainWindow:
         
         self.table_of_contents = QCheckBox("目次を生成 (--toc)")
         checkbox_layout.addWidget(self.table_of_contents, 0, 1)
-        
+
         self.number_sections = QCheckBox("セクション番号 (--number-sections)")
         checkbox_layout.addWidget(self.number_sections, 1, 0)
-        
+
+        self.citeproc = QCheckBox("引用処理 (--citeproc)")
+        checkbox_layout.addWidget(self.citeproc, 1, 1)
+
         self.standalone = QCheckBox("スタンドアロン出力 (--standalone)")
         self.standalone.setChecked(True)
-        checkbox_layout.addWidget(self.standalone, 1, 1)
+        checkbox_layout.addWidget(self.standalone, 2, 0)
         
         layout.addWidget(checkbox_group)
         
