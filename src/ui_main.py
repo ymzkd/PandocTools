@@ -295,7 +295,7 @@ class Ui_MainWindow:
         self.wrap_preserve = QCheckBox("改行を保持 (--wrap=preserve)")
         self.wrap_preserve.setChecked(True)
         checkbox_layout.addWidget(self.wrap_preserve, 0, 0)
-        
+
         self.table_of_contents = QCheckBox("目次を生成 (--toc)")
         checkbox_layout.addWidget(self.table_of_contents, 0, 1)
 
@@ -308,6 +308,9 @@ class Ui_MainWindow:
         self.standalone = QCheckBox("スタンドアロン出力 (--standalone)")
         self.standalone.setChecked(True)
         checkbox_layout.addWidget(self.standalone, 2, 0)
+
+        self.pandoc_crossref = QCheckBox("相互参照処理 (pandoc-crossref)")
+        checkbox_layout.addWidget(self.pandoc_crossref, 2, 1)
         
         layout.addWidget(checkbox_group)
         

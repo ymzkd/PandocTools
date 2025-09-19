@@ -268,6 +268,12 @@ def app_config_to_defaults(app_config: Dict[str, Any], input_files: Optional[Lis
         elif arg == '--bibliography' and i + 1 < len(extra_args):
             defaults_data['bibliography'] = [extra_args[i + 1]]
             i += 1
+        elif arg == '--filter' and i + 1 < len(extra_args):
+            if extra_args[i + 1] == 'pandoc-crossref':
+                if 'filters' not in defaults_data:
+                    defaults_data['filters'] = []
+                defaults_data['filters'].append('pandoc-crossref')
+            i += 1
         elif arg == '-V' and i + 1 < len(extra_args):
             # Variables
             var_setting = extra_args[i + 1]

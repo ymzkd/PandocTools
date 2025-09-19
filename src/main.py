@@ -242,9 +242,12 @@ class MainWindow(QMainWindow):
         if self.ui.standalone.isChecked():
             args.extend(["--standalone"])
 
+        if self.ui.pandoc_crossref.isChecked():
+            args.extend(["--filter", "pandoc-crossref"])
+
         if self.ui.citeproc.isChecked():
             args.extend(["--citeproc"])
-        
+
         # PDF エンジン
         pdf_engine = self.ui.pdf_engine.currentText()
         if pdf_engine:
@@ -529,6 +532,7 @@ class MainWindow(QMainWindow):
         self.ui.table_of_contents.setChecked(False)
         self.ui.number_sections.setChecked(False)
         self.ui.citeproc.setChecked(False)
+        self.ui.pandoc_crossref.setChecked(False)
         self.ui.standalone.setChecked(False)
         
         # テキストフィールドをリセット
@@ -572,6 +576,11 @@ class MainWindow(QMainWindow):
             elif arg == "--citeproc":
                 self.ui.citeproc.setChecked(True)
                 processed = True
+            elif arg == "--filter" and i + 1 < len(extra_args):
+                if extra_args[i + 1] == "pandoc-crossref":
+                    self.ui.pandoc_crossref.setChecked(True)
+                    processed = True
+                    i += 1
             elif arg.startswith("--pdf-engine="):
                 engine = arg.split("=", 1)[1]
                 index = self.ui.pdf_engine.findText(engine)
@@ -788,6 +797,11 @@ class MainWindow(QMainWindow):
             if index >= 0:
                 self.ui.pdf_engine.setCurrentIndex(index)
 
+        # Filters設定
+        if 'filters' in defaults_data:
+            filters = defaults_data.get('filters', [])
+            if 'pandoc-crossref' in filters:
+                self.ui.pandoc_crossref.setChecked(True)
 
         # ログ出力
         self.append_log(f"プロジェクトファイルを読み込みました: {len(input_files)}個のファイル\n")

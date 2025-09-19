@@ -17,42 +17,21 @@ Pandoc GUI Converterは、コマンドラインでのPandoc操作を直感的な
 
 ## 必要な環境
 
-- Windows 10/11
 - Python 3.9以上
 - Pandoc (別途インストールが必要)
+- pandoc-crossref (Optional)
 
 ## インストール・実行方法
-
-### 1. 依存ツールのインストール
 
 ```powershell
 # uv をインストール
 pip install uv
 
-# Pandoc をインストール (公式サイトからダウンロード)
-# https://pandoc.org/installing.html
-```
+# 環境・パッケージセットアップ
+uv sync
 
-### 2. プロジェクトのセットアップ
-
-```powershell
-# プロジェクトディレクトリに移動
-cd pandoc-gui
-
-# 仮想環境を作成
-uv venv
-
-# 仮想環境をアクティベート
-.\.venv\Scripts\Activate.ps1
-
-# 依存パッケージをインストール
-uv pip install PyQt6 pypandoc pyyaml
-```
-
-### 3. アプリケーションの実行
-
-```powershell
-python src/main.py
+# アプリケーションの実行
+uv run src/main.py
 ```
 
 ## 使用方法
@@ -253,9 +232,6 @@ variables:
 ### 1. PyInstallerのインストール
 
 ```powershell
-# 仮想環境をアクティベート
-.\.venv\Scripts\Activate.ps1
-
 # PyInstallerをインストール
 pip install pyinstaller
 ```
