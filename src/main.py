@@ -376,7 +376,10 @@ class MainWindow(QMainWindow):
         header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
         if header_base_path.exists():
             extra_args.extend(["--include-in-header", str(header_base_path)])
-        
+
+        # ローディングUIを即座に表示
+        self.show_loading_ui()
+
         # 変換開始
         if len(input_files) == 1:
             # 単一ファイル変換
@@ -419,14 +422,21 @@ class MainWindow(QMainWindow):
         self.worker.terminate_process()
         self.append_log("変換を停止しました。\n")
         
-    def on_conversion_started(self):
-        """変換開始時の処理"""
+    def show_loading_ui(self):
+        """ローディングUIを表示（プロセス開始前）"""
         self.ui.btn_run.setEnabled(False)
         self.ui.btn_stop.setEnabled(True)
         self.ui.btn_open_output.setEnabled(False)
         self.ui.btn_open_pdf.setEnabled(False)
         self.ui.progress_bar.setVisible(True)
         self.ui.progress_bar.setRange(0, 0)  # 不定長プログレスバー
+        self.ui.statusbar.showMessage("変換準備中...")
+
+        # UIを即座に更新
+        QApplication.processEvents()
+
+    def on_conversion_started(self):
+        """変換開始時の処理"""
         self.ui.statusbar.showMessage("変換実行中...")
         
     def on_conversion_finished(self, exit_code: int):
@@ -747,10 +757,8 @@ class MainWindow(QMainWindow):
 
 
         # 出力ファイル名のみを設定
-        if app_config.get('output_file'):
-            output_path = Path(app_config['output_file'])
-            # ファイル名のみを設定（ディレクトリは設定しない）
-            self.ui.output_filename.setText(output_path.name)
+        if app_config.get('output_filename'):
+            self.ui.output_filename.setText(app_config['output_filename'])
 
         # 出力形式
         output_format = app_config.get('output_format', 'pdf')
@@ -902,7 +910,7 @@ class MainWindow(QMainWindow):
 
             # 出力ファイル名のみを設定（ディレクトリは含めない）
             if self.ui.output_filename.text().strip():
-                app_config['output_file'] = self.ui.output_filename.text().strip()
+                app_config['output_filename'] = self.ui.output_filename.text().strip()
 
             # プロジェクトディレクトリからの相対パスに変換
             project_dir = Path(file_path).parent

@@ -67,7 +67,6 @@ def defaults_to_app_config(defaults_data: Dict[str, Any], project_dir: Optional[
     """
     app_config = {
         'input_files': [],
-        'output_file': '',
         'output_format': 'pdf',
         'extra_args': [],
         'lua_filter': '',
