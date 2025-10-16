@@ -1,7 +1,6 @@
 """
 QProcess を使った非同期 Pandoc 実行モジュール
 """
-import subprocess
 from pathlib import Path
 from typing import List
 from PyQt6.QtCore import QObject, QProcess, pyqtSignal
@@ -172,14 +171,14 @@ class PandocWorker(QObject):
             
     def _check_pandoc_available(self) -> bool:
         """Pandoc が利用可能かチェック"""
-        try:
-            result = subprocess.run(['pandoc', '--version'], 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=5)
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False
+        # QProcessでチェック（EXE環境での互換性のため）
+        from PyQt6.QtCore import QProcess
+        test_proc = QProcess()
+        test_proc.start('pandoc', ['--version'])
+        if test_proc.waitForStarted(5000):
+            test_proc.waitForFinished(5000)
+            return test_proc.exitCode() == 0
+        return False
             
     def _on_stdout(self):
         """標準出力受信時の処理"""
