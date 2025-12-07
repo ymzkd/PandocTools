@@ -252,6 +252,7 @@ class MainWindow(QMainWindow):
         pdf_engine = self.ui.pdf_engine.currentText()
         if pdf_engine:
             args.extend([f"--pdf-engine={pdf_engine}"])
+            args.extend(["--pdf-engine-opt=-shell-escape"])
             
         # ドキュメントクラス
         doc_class = self.ui.document_class.text().strip()

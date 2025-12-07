@@ -185,4 +185,7 @@ Thumbs.db
 !README.md
 
 # Pandoc temporary files
-*.pandoc 
+*.pandoc
+
+# SVG conversion intermediate files (Inkscape)
+**/svg-inkscape/
