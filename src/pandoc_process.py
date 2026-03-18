@@ -48,10 +48,15 @@ class PandocWorker(QObject):
         
         # リソースパスを抽出して追加
         resource_paths = self._extract_resource_paths([input_file])
-        
+
+        # 作業ディレクトリを入力ファイルのディレクトリに設定
+        # SVG変換時にInkscapeがローカルファイルに直接アクセスできるようにする
+        working_dir = str(Path(input_file).parent.resolve())
+        self.proc.setWorkingDirectory(working_dir)
+
         # コマンドライン引数を構築
         cmd = ['pandoc', input_file, '-o', output_file, '--resource-path', resource_paths] + extra_args
-        
+
         # プロセス実行
         self.stdout_received.emit(f"実行コマンド: {' '.join(cmd)}\n")
         self.proc.start('pandoc', cmd[1:])
@@ -105,10 +110,15 @@ class PandocWorker(QObject):
         
         # リソースパスを抽出して追加
         resource_paths = self._extract_resource_paths(input_files)
-        
+
+        # 作業ディレクトリを最初の入力ファイルのディレクトリに設定
+        # SVG変換時にInkscapeがローカルファイルに直接アクセスできるようにする
+        working_dir = str(Path(input_files[0]).parent.resolve())
+        self.proc.setWorkingDirectory(working_dir)
+
         # コマンドライン引数を構築（複数の入力ファイル + 出力ファイル + リソースパス + 追加引数）
         cmd = ['pandoc'] + input_files + ['-o', output_file, '--resource-path', resource_paths] + extra_args
-        
+
         # プロセス実行
         self.stdout_received.emit(f"結合変換を開始:\n")
         self.stdout_received.emit(f"入力ファイル: {len(input_files)}個\n")
@@ -117,7 +127,7 @@ class PandocWorker(QObject):
         self.stdout_received.emit(f"出力ファイル: {Path(output_file).name}\n")
         self.stdout_received.emit(f"リソースパス: {resource_paths}\n")
         self.stdout_received.emit(f"実行コマンド: {' '.join(cmd)}\n\n")
-        
+
         self.proc.start('pandoc', cmd[1:])
         
     def _run_next_batch_file(self):
