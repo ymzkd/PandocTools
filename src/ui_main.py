@@ -153,7 +153,7 @@ class Ui_MainWindow:
         
         # 出力形式
         self.output_format = QComboBox()
-        self.output_format.addItems(["pdf", "tex", "docx"])
+        self.output_format.addItems(["pdf", "tex", "docx", "typst"])
         output_layout.addRow("出力形式:", self.output_format)
         
         # 出力ディレクトリ
@@ -195,7 +195,7 @@ class Ui_MainWindow:
         
         # PDF エンジン
         self.pdf_engine = QComboBox()
-        self.pdf_engine.addItems(["xelatex", "pdflatex", "lualatex", "tectonic", "wkhtmltopdf", "weasyprint"])
+        self.pdf_engine.addItems(["xelatex", "pdflatex", "lualatex", "tectonic", "typst", "wkhtmltopdf", "weasyprint"])
         basic_options_layout.addRow("PDFエンジン:", self.pdf_engine)
         
         # ドキュメントクラス

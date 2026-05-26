@@ -250,19 +250,24 @@ class MainWindow(QMainWindow):
 
         # PDF エンジン
         pdf_engine = self.ui.pdf_engine.currentText()
+        output_format = self.ui.output_format.currentText()
+        is_typst_mode = pdf_engine == "typst" or output_format == "typst"
+
         if pdf_engine:
             args.extend([f"--pdf-engine={pdf_engine}"])
-            args.extend(["--pdf-engine-opt=-shell-escape"])
-            
-        # ドキュメントクラス
-        doc_class = self.ui.document_class.text().strip()
-        if doc_class:
-            args.extend(["-V", f"documentclass={doc_class}"])
-            
-        # クラスオプション
-        class_opt = self.ui.class_option.text().strip()
-        if class_opt:
-            args.extend(["-V", f"classoption={class_opt}"])
+            if not is_typst_mode:
+                args.extend(["--pdf-engine-opt=-shell-escape"])
+
+        # ドキュメントクラス（LaTeX専用）
+        if not is_typst_mode:
+            doc_class = self.ui.document_class.text().strip()
+            if doc_class:
+                args.extend(["-V", f"documentclass={doc_class}"])
+
+            # クラスオプション（LaTeX専用）
+            class_opt = self.ui.class_option.text().strip()
+            if class_opt:
+                args.extend(["-V", f"classoption={class_opt}"])
             
         # フォントサイズ
         font_size = self.ui.font_size.currentText().strip()
@@ -373,10 +378,13 @@ class MainWindow(QMainWindow):
             extra_args.extend(["--bibliography", bib_file])
         
         
-        # LaTeXヘッダーファイルを直接include
-        header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
-        if header_base_path.exists():
-            extra_args.extend(["--include-in-header", str(header_base_path)])
+        # LaTeXヘッダーファイルを直接include（typstモード時は除外）
+        engine = self.ui.pdf_engine.currentText()
+        is_typst_mode = engine == "typst" or output_format == "typst"
+        if not is_typst_mode:
+            header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
+            if header_base_path.exists():
+                extra_args.extend(["--include-in-header", str(header_base_path)])
 
         # ローディングUIを即座に表示
         self.show_loading_ui()
