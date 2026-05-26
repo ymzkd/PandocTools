@@ -273,12 +273,17 @@ class MainWindow(QMainWindow):
         font_size = self.ui.font_size.currentText().strip()
         if font_size:
             args.extend(["-V", f"fontsize={font_size}"])
-            
+
         # 用紙サイズ
         paper_size = self.ui.paper_size.currentText().strip()
         if paper_size:
-            args.extend(["-V", f"papersize={paper_size}"])
-            
+            if is_typst_mode:
+                # Typst は "a4paper" ではなく "a4" 形式
+                typst_paper = paper_size.replace("paper", "") if paper_size.endswith("paper") else paper_size
+                args.extend(["-V", f"papersize={typst_paper}"])
+            else:
+                args.extend(["-V", f"papersize={paper_size}"])
+
         # 余白設定（詳細）
         margin_top = self.ui.margin_top.text().strip()
         margin_bottom = self.ui.margin_bottom.text().strip()
@@ -286,21 +291,34 @@ class MainWindow(QMainWindow):
         margin_right = self.ui.margin_right.text().strip()
         footskip = self.ui.footskip.text().strip()
 
-        margin_parts = []
-        if margin_top:
-            margin_parts.append(f"top={margin_top}")
-        if margin_bottom:
-            margin_parts.append(f"bottom={margin_bottom}")
-        if margin_left:
-            margin_parts.append(f"left={margin_left}")
-        if margin_right:
-            margin_parts.append(f"right={margin_right}")
-        if footskip:
-            margin_parts.append(f"footskip={footskip}")
+        if is_typst_mode:
+            # Typst は個別の margin-* 変数として渡す (カスタムテンプレートで処理)
+            if margin_top:
+                args.extend(["-V", f"margin-top={margin_top}"])
+            if margin_bottom:
+                args.extend(["-V", f"margin-bottom={margin_bottom}"])
+            if margin_left:
+                args.extend(["-V", f"margin-left={margin_left}"])
+            if margin_right:
+                args.extend(["-V", f"margin-right={margin_right}"])
+            # footskip は Typst 側に対応設定がないので無視
+        else:
+            margin_parts = []
+            if margin_top:
+                margin_parts.append(f"top={margin_top}")
+            if margin_bottom:
+                margin_parts.append(f"bottom={margin_bottom}")
+            if margin_left:
+                margin_parts.append(f"left={margin_left}")
+            if margin_right:
+                margin_parts.append(f"right={margin_right}")
+            if footskip:
+                margin_parts.append(f"footskip={footskip}")
 
-        if margin_parts:
-            args.extend(["-V", f"geometry:{','.join(margin_parts)}"])
-            
+            if margin_parts:
+                args.extend(["-V", f"geometry:{','.join(margin_parts)}"])
+
+
         
         # Markdown拡張
         md_ext = self.ui.markdown_extensions.text().strip()
@@ -321,11 +339,21 @@ class MainWindow(QMainWindow):
         template = self.ui.template_file.text().strip()
         if template:
             args.extend([f"--template={template}"])
+        elif is_typst_mode:
+            # ユーザー指定のテンプレートがない場合、Typst モード用の組み込みテンプレートを適用
+            typst_template_path = RESOURCE_DIR / "templates" / "default_typst.typ"
+            if typst_template_path.exists():
+                args.extend([f"--template={typst_template_path}"])
+                # 言語をデフォルトで日本語に
+                args.extend(["-V", "lang=ja"])
 
-        # 参考文献スタイル（default.csl）を常に適用
-        csl_path = RESOURCE_DIR / "templates" / "default.csl"
-        if csl_path.exists():
-            args.extend(["--csl", str(csl_path)])
+        # 参考文献スタイル（default.csl）を適用
+        # Typst モード時は Pandoc が絶対パスをそのまま .typ に埋め込みドライブレターを
+        # 解決できないため、スキップする
+        if not is_typst_mode:
+            csl_path = RESOURCE_DIR / "templates" / "default.csl"
+            if csl_path.exists():
+                args.extend(["--csl", str(csl_path)])
 
             
         # カスタム引数
