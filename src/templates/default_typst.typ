@@ -149,7 +149,7 @@ $endfor$
     ),
 $endif$
 $if(keywords)$
-  keywords: ($for(keywords)$$keyword$$sep$,$endfor$),
+  keywords: ($for(keywords)$"$keywords$"$sep$, $endfor$),
 $endif$
 $if(date)$
   date: [$date$],
@@ -231,8 +231,8 @@ $include-before$
 $endfor$
 $if(toc)$
 #outline(
-  title: auto,
-  depth: $toc-depth$
+  title: auto$if(toc-depth)$,
+  depth: $toc-depth$$endif$
 );
 $endif$
 
@@ -240,7 +240,7 @@ $body$
 
 $if(citations)$
 $for(nocite-ids)$
-#cite(label("${it}"), form: none)
+#cite(label("$it$"), form: none)
 $endfor$
 $if(csl)$
 

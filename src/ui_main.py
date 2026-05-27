@@ -180,118 +180,91 @@ class Ui_MainWindow:
         layout.addStretch()
         
     def _setup_advanced_tab(self):
-        """詳細設定タブの設定"""
+        """詳細設定タブの設定
+
+        Phase 2 で GroupBox を「共通組版 / LaTeX 詳細 / Typst 詳細」の 3 セクションに整理。
+        engine 非依存の論理項目はすべて「共通組版」へ集約する。
+        """
         self.advanced_tab = QWidget()
         self.tab_widget.addTab(self.advanced_tab, "オプション設定")
-        
-        # スクロールエリアを作成
+
         scroll_area = QScrollArea()
         scroll_content = QWidget()
         layout = QVBoxLayout(scroll_content)
-        
-        # 基本オプション
-        basic_options_group = QGroupBox("基本オプション")
-        basic_options_layout = QFormLayout(basic_options_group)
-        
+
+        # =========================================================
+        # 共通組版 (engine 非依存の論理値)
+        # =========================================================
+        common_group = QGroupBox("共通組版")
+        common_outer = QVBoxLayout(common_group)
+
+        # --- 基本フォーム部分 ---
+        common_form = QFormLayout()
+
         # PDF エンジン
         self.pdf_engine = QComboBox()
         self.pdf_engine.addItems(["xelatex", "pdflatex", "lualatex", "tectonic", "typst", "wkhtmltopdf", "weasyprint"])
-        basic_options_layout.addRow("PDFエンジン:", self.pdf_engine)
-        
-        # ドキュメントクラス
-        self.document_class = QLineEdit("bxjsarticle")
-        basic_options_layout.addRow("ドキュメントクラス:", self.document_class)
-        
-        # クラスオプション
-        self.class_option = QLineEdit("pandoc")
-        basic_options_layout.addRow("クラスオプション:", self.class_option)
-        
+        common_form.addRow("PDFエンジン:", self.pdf_engine)
+
         # Markdown拡張
         self.markdown_extensions = QLineEdit("markdown+hard_line_breaks")
-        basic_options_layout.addRow("Markdown拡張:", self.markdown_extensions)
-        
+        common_form.addRow("Markdown拡張:", self.markdown_extensions)
+
         # フォントサイズ
         self.font_size = QComboBox()
         self.font_size.addItems(["", "8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt", "25pt"])
-        self.font_size.setCurrentText("")  # デフォルトは未設定
-        basic_options_layout.addRow("フォントサイズ:", self.font_size)
-        
-        # 用紙サイズ
+        self.font_size.setCurrentText("")
+        common_form.addRow("フォントサイズ:", self.font_size)
+
+        # 用紙サイズ (B 判は廃止 - A-2-a)
         self.paper_size = QComboBox()
-        self.paper_size.addItems(["", "a3paper", "a4paper", "a5paper", "b4paper", "b5paper", "letterpaper"])
-        self.paper_size.setCurrentText("")  # デフォルトは未設定
-        basic_options_layout.addRow("用紙サイズ:", self.paper_size)
-        
-        # 余白設定（詳細）
-        margin_group = QGroupBox("余白設定")
+        self.paper_size.addItems(["", "a3paper", "a4paper", "a5paper", "letterpaper"])
+        self.paper_size.setCurrentText("")
+        common_form.addRow("用紙サイズ:", self.paper_size)
+
+        # 行間係数 linestretch (Phase 2 新設)
+        self.linestretch = QLineEdit()
+        self.linestretch.setPlaceholderText("例: 1.0, 1.2, 1.5 (空欄でテンプレデフォルト)")
+        common_form.addRow("行間係数:", self.linestretch)
+
+        common_outer.addLayout(common_form)
+
+        # --- 余白サブグループ ---
+        margin_group = QGroupBox("余白")
         margin_layout = QGridLayout(margin_group)
-        
+
         self.margin_top = QLineEdit()
         self.margin_top.setPlaceholderText("例: 20mm")
         margin_layout.addWidget(QLabel("上:"), 0, 0)
         margin_layout.addWidget(self.margin_top, 0, 1)
-        
+
         self.margin_bottom = QLineEdit()
         self.margin_bottom.setPlaceholderText("例: 20mm")
         margin_layout.addWidget(QLabel("下:"), 0, 2)
         margin_layout.addWidget(self.margin_bottom, 0, 3)
-        
+
         self.margin_left = QLineEdit()
         self.margin_left.setPlaceholderText("例: 25mm")
         margin_layout.addWidget(QLabel("左:"), 1, 0)
         margin_layout.addWidget(self.margin_left, 1, 1)
-        
+
         self.margin_right = QLineEdit()
         self.margin_right.setPlaceholderText("例: 25mm")
         margin_layout.addWidget(QLabel("右:"), 1, 2)
         margin_layout.addWidget(self.margin_right, 1, 3)
-        
-        # フッター間隔（footskip）
+
+        # footskip は LaTeX 専用 (typst では無視)
         self.footskip = QLineEdit()
-        self.footskip.setPlaceholderText("例: 20pt, 25pt")
+        self.footskip.setPlaceholderText("LaTeX のみ。例: 20pt")
         margin_layout.addWidget(QLabel("フッター間隔:"), 2, 0)
         margin_layout.addWidget(self.footskip, 2, 1)
-        
-        layout.addWidget(margin_group)
-        
-        
-        layout.addWidget(basic_options_group)
-        
-        # フィルター設定
-        filter_group = QGroupBox("追加フィルターとテンプレート")
-        filter_layout = QFormLayout(filter_group)
-        
-        # 追加 Lua フィルター（default_filter.luaは内蔵のため表示のみ）
-        filter_info_layout = QVBoxLayout()
-        filter_info_layout.addWidget(QLabel("内蔵フィルター: default_filter.lua (常に適用)"))
-        
-        lua_layout = QHBoxLayout()
-        self.lua_filter = QLineEdit()
-        self.lua_filter.setPlaceholderText("追加のLuaフィルターファイルのパス (オプション)")
-        self.btn_select_lua = QPushButton("選択")
-        lua_layout.addWidget(self.lua_filter)
-        lua_layout.addWidget(self.btn_select_lua)
-        filter_info_layout.addLayout(lua_layout)
-        
-        filter_layout.addRow("Luaフィルター:", filter_info_layout)
-        
-        # テンプレート
-        template_layout = QHBoxLayout()
-        self.template_file = QLineEdit()
-        self.template_file.setPlaceholderText("テンプレートファイルのパス")
-        self.btn_select_template = QPushButton("選択")
-        template_layout.addWidget(self.template_file)
-        template_layout.addWidget(self.btn_select_template)
-        filter_layout.addRow("テンプレート:", template_layout)
-        
-        
-        
-        layout.addWidget(filter_group)
-        
-        # チェックボックスオプション
+
+        common_outer.addWidget(margin_group)
+
+        # --- チェックボックス類 ---
         checkbox_group = QGroupBox("オプション")
         checkbox_layout = QGridLayout(checkbox_group)
-        
+
         self.wrap_preserve = QCheckBox("改行を保持 (--wrap=preserve)")
         self.wrap_preserve.setChecked(True)
         checkbox_layout.addWidget(self.wrap_preserve, 0, 0)
@@ -309,10 +282,60 @@ class Ui_MainWindow:
         self.standalone.setChecked(True)
         checkbox_layout.addWidget(self.standalone, 2, 0)
 
-        self.pandoc_crossref = QCheckBox("相互参照処理 (pandoc-crossref)")
+        self.pandoc_crossref = QCheckBox("相互参照処理 (pandoc-crossref ※LaTeX のみ)")
         checkbox_layout.addWidget(self.pandoc_crossref, 2, 1)
-        
-        layout.addWidget(checkbox_group)
+
+        common_outer.addWidget(checkbox_group)
+
+        # --- フィルター / テンプレート ---
+        filter_group = QGroupBox("追加フィルターとテンプレート")
+        filter_layout = QFormLayout(filter_group)
+
+        filter_info_layout = QVBoxLayout()
+        filter_info_layout.addWidget(QLabel("内蔵フィルター: default_filter.lua (LaTeX モードでのみ適用)"))
+
+        lua_layout = QHBoxLayout()
+        self.lua_filter = QLineEdit()
+        self.lua_filter.setPlaceholderText("追加のLuaフィルターファイルのパス (オプション)")
+        self.btn_select_lua = QPushButton("選択")
+        lua_layout.addWidget(self.lua_filter)
+        lua_layout.addWidget(self.btn_select_lua)
+        filter_info_layout.addLayout(lua_layout)
+        filter_layout.addRow("Luaフィルター:", filter_info_layout)
+
+        template_layout = QHBoxLayout()
+        self.template_file = QLineEdit()
+        self.template_file.setPlaceholderText("テンプレートファイルのパス")
+        self.btn_select_template = QPushButton("選択")
+        template_layout.addWidget(self.template_file)
+        template_layout.addWidget(self.btn_select_template)
+        filter_layout.addRow("テンプレート:", template_layout)
+
+        common_outer.addWidget(filter_group)
+
+        layout.addWidget(common_group)
+
+        # =========================================================
+        # LaTeX 詳細 (LaTeX engine 専用項目)
+        # =========================================================
+        latex_group = QGroupBox("LaTeX 詳細")
+        latex_layout = QFormLayout(latex_group)
+
+        self.document_class = QLineEdit("bxjsarticle")
+        latex_layout.addRow("ドキュメントクラス:", self.document_class)
+
+        self.class_option = QLineEdit("pandoc")
+        latex_layout.addRow("クラスオプション:", self.class_option)
+
+        layout.addWidget(latex_group)
+
+        # =========================================================
+        # Typst 詳細 (将来用プレースホルダ)
+        # =========================================================
+        typst_group = QGroupBox("Typst 詳細")
+        typst_layout = QVBoxLayout(typst_group)
+        typst_layout.addWidget(QLabel("Typst 固有の設定は今後追加予定です。\n現状は内蔵テンプレート (default_typst.typ) のデフォルト値を使用します。"))
+        layout.addWidget(typst_group)
         
         # カスタム引数
         custom_group = QGroupBox("カスタム引数")

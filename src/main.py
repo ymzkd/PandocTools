@@ -19,8 +19,9 @@ from common import BASE_DIR, RESOURCE_DIR
 
 from ui_main import Ui_MainWindow
 from pandoc_process import PandocWorker
-from config import load_profile, save_profile, get_available_profiles, delete_profile, get_default_profile
+from config import load_profile, save_profile, get_available_profiles, delete_profile, get_default_profile, is_v2_profile, SCHEMA_VERSION
 from defaults import load_defaults_file, save_defaults_file, defaults_to_app_config, app_config_to_defaults
+from engines import LogicalConfig, get_adapter, is_typst_mode
 
 
 class MainWindow(QMainWindow):
@@ -225,147 +226,57 @@ class MainWindow(QMainWindow):
         path = Path(file_path)
         return path.name
             
-    def collect_extra_args(self) -> List[str]:
-        """UIから追加引数を収集"""
-        args = []
-        
-        # 基本オプション
-        if self.ui.wrap_preserve.isChecked():
-            args.extend(["--wrap=preserve"])
-            
-        if self.ui.table_of_contents.isChecked():
-            args.extend(["--toc"])
-            
-        if self.ui.number_sections.isChecked():
-            args.extend(["--number-sections"])
-            
-        if self.ui.standalone.isChecked():
-            args.extend(["--standalone"])
-
-        if self.ui.pandoc_crossref.isChecked():
-            args.extend(["--filter", "pandoc-crossref"])
-
-        if self.ui.citeproc.isChecked():
-            args.extend(["--citeproc"])
-
-        # PDF エンジン
-        pdf_engine = self.ui.pdf_engine.currentText()
-        output_format = self.ui.output_format.currentText()
-        is_typst_mode = pdf_engine == "typst" or output_format == "typst"
-
-        if pdf_engine:
-            args.extend([f"--pdf-engine={pdf_engine}"])
-            if not is_typst_mode:
-                args.extend(["--pdf-engine-opt=-shell-escape"])
-
-        # ドキュメントクラス（LaTeX専用）
-        if not is_typst_mode:
-            doc_class = self.ui.document_class.text().strip()
-            if doc_class:
-                args.extend(["-V", f"documentclass={doc_class}"])
-
-            # クラスオプション（LaTeX専用）
-            class_opt = self.ui.class_option.text().strip()
-            if class_opt:
-                args.extend(["-V", f"classoption={class_opt}"])
-            
-        # フォントサイズ
-        font_size = self.ui.font_size.currentText().strip()
-        if font_size:
-            args.extend(["-V", f"fontsize={font_size}"])
-
-        # 用紙サイズ
-        paper_size = self.ui.paper_size.currentText().strip()
-        if paper_size:
-            if is_typst_mode:
-                # Typst は "a4paper" ではなく "a4" 形式
-                typst_paper = paper_size.replace("paper", "") if paper_size.endswith("paper") else paper_size
-                args.extend(["-V", f"papersize={typst_paper}"])
-            else:
-                args.extend(["-V", f"papersize={paper_size}"])
-
-        # 余白設定（詳細）
-        margin_top = self.ui.margin_top.text().strip()
-        margin_bottom = self.ui.margin_bottom.text().strip()
-        margin_left = self.ui.margin_left.text().strip()
-        margin_right = self.ui.margin_right.text().strip()
-        footskip = self.ui.footskip.text().strip()
-
-        if is_typst_mode:
-            # Typst は個別の margin-* 変数として渡す (カスタムテンプレートで処理)
-            if margin_top:
-                args.extend(["-V", f"margin-top={margin_top}"])
-            if margin_bottom:
-                args.extend(["-V", f"margin-bottom={margin_bottom}"])
-            if margin_left:
-                args.extend(["-V", f"margin-left={margin_left}"])
-            if margin_right:
-                args.extend(["-V", f"margin-right={margin_right}"])
-            # footskip は Typst 側に対応設定がないので無視
-        else:
-            margin_parts = []
-            if margin_top:
-                margin_parts.append(f"top={margin_top}")
-            if margin_bottom:
-                margin_parts.append(f"bottom={margin_bottom}")
-            if margin_left:
-                margin_parts.append(f"left={margin_left}")
-            if margin_right:
-                margin_parts.append(f"right={margin_right}")
-            if footskip:
-                margin_parts.append(f"footskip={footskip}")
-
-            if margin_parts:
-                args.extend(["-V", f"geometry:{','.join(margin_parts)}"])
-
-
-        
-        # Markdown拡張
-        md_ext = self.ui.markdown_extensions.text().strip()
-        if md_ext:
-            args.extend(["--from", md_ext])
-            
-        # 内蔵フィルター（default_filter.lua）を常に適用
-        builtin_filter_path = RESOURCE_DIR / "filters" / "default_filter.lua"
-        if builtin_filter_path.exists():
-            args.extend(["--lua-filter", str(builtin_filter_path)])
-        
-        # 追加フィルター
-        lua_filter = self.ui.lua_filter.text().strip()
-        if lua_filter:
-            filter_path = self._resolve_filter_path(lua_filter)
-            args.extend(["--lua-filter", str(filter_path)])
-            
-        template = self.ui.template_file.text().strip()
-        if template:
-            args.extend([f"--template={template}"])
-        elif is_typst_mode:
-            # ユーザー指定のテンプレートがない場合、Typst モード用の組み込みテンプレートを適用
-            typst_template_path = RESOURCE_DIR / "templates" / "default_typst.typ"
-            if typst_template_path.exists():
-                args.extend([f"--template={typst_template_path}"])
-                # 言語をデフォルトで日本語に
-                args.extend(["-V", "lang=ja"])
-
-        # 参考文献スタイル（default.csl）を適用
-        # Typst モード時は Pandoc が絶対パスをそのまま .typ に埋め込みドライブレターを
-        # 解決できないため、スキップする
-        if not is_typst_mode:
-            csl_path = RESOURCE_DIR / "templates" / "default.csl"
-            if csl_path.exists():
-                args.extend(["--csl", str(csl_path)])
-
-            
-        # カスタム引数
+    def build_logical_config(self, bibliography_files: List[str] = None) -> LogicalConfig:
+        """UI 状態を engine 非依存の LogicalConfig に詰める."""
+        custom_args: List[str] = []
         custom_args_text = self.ui.custom_args.toPlainText().strip()
         if custom_args_text:
-            for line in custom_args_text.split('\n'):
+            for line in custom_args_text.split("\n"):
                 line = line.strip()
                 if line:
-                    args.append(line)
-                    
-        return args
-        
+                    custom_args.append(line)
+
+        lua_filter = self.ui.lua_filter.text().strip()
+        resolved_lua = str(self._resolve_filter_path(lua_filter)) if lua_filter else None
+
+        # linestretch: Phase 2 で新設。互換のため属性が無い古い UI でも動くようにする
+        linestretch = ""
+        if hasattr(self.ui, "linestretch"):
+            linestretch = self.ui.linestretch.text().strip() if hasattr(self.ui.linestretch, "text") else self.ui.linestretch.currentText().strip()
+
+        return LogicalConfig(
+            output_format=self.ui.output_format.currentText(),
+            engine=self.ui.pdf_engine.currentText(),
+            fontsize=self.ui.font_size.currentText().strip() or None,
+            paper=self.ui.paper_size.currentText().strip() or None,
+            margin_top=self.ui.margin_top.text().strip() or None,
+            margin_bottom=self.ui.margin_bottom.text().strip() or None,
+            margin_left=self.ui.margin_left.text().strip() or None,
+            margin_right=self.ui.margin_right.text().strip() or None,
+            footskip=self.ui.footskip.text().strip() or None,
+            linestretch=linestretch or None,
+            toc=self.ui.table_of_contents.isChecked(),
+            number_sections=self.ui.number_sections.isChecked(),
+            standalone=self.ui.standalone.isChecked(),
+            citeproc=self.ui.citeproc.isChecked(),
+            pandoc_crossref=self.ui.pandoc_crossref.isChecked(),
+            wrap_preserve=self.ui.wrap_preserve.isChecked(),
+            markdown_extensions=self.ui.markdown_extensions.text().strip() or None,
+            lua_filter=resolved_lua,
+            template_file=self.ui.template_file.text().strip() or None,
+            custom_args=custom_args,
+            bibliography_files=list(bibliography_files or []),
+            documentclass=self.ui.document_class.text().strip() or None,
+            classoption=self.ui.class_option.text().strip() or None,
+        )
+
+    def collect_extra_args(self, bibliography_files: List[str] = None) -> List[str]:
+        """UI から Pandoc コマンドライン引数を生成 (engine 別 Adapter 経由)."""
+        cfg = self.build_logical_config(bibliography_files=bibliography_files)
+        adapter = get_adapter(cfg)
+        return adapter.build_args(cfg, RESOURCE_DIR)
+
+
     def start_conversion(self):
         """変換を開始"""
         # 入力ファイルの確認と分離
@@ -398,21 +309,12 @@ class MainWindow(QMainWindow):
             # 出力ディレクトリが指定されていない場合、最初の入力ファイルと同じディレクトリを使用
             output_dir = str(Path(input_files[0]).parent)
             
-        # 追加引数を収集
-        extra_args = self.collect_extra_args()
+        # 追加引数を収集 (bibliography / LaTeX header include は EngineAdapter 内で処理)
+        extra_args = self.collect_extra_args(bibliography_files=bibliography_files)
 
-        # 参考文献ファイルを--bibliography引数として追加
-        for bib_file in bibliography_files:
-            extra_args.extend(["--bibliography", bib_file])
-        
-        
-        # LaTeXヘッダーファイルを直接include（typstモード時は除外）
-        engine = self.ui.pdf_engine.currentText()
-        is_typst_mode = engine == "typst" or output_format == "typst"
-        if not is_typst_mode:
-            header_base_path = RESOURCE_DIR / "templates" / "latex_header_base.tex"
-            if header_base_path.exists():
-                extra_args.extend(["--include-in-header", str(header_base_path)])
+        # 出力ファイルの拡張子は Adapter から取得 (typst -> typ 変換)
+        cfg = self.build_logical_config()
+        output_ext = get_adapter(cfg).output_extension(cfg)
 
         # ローディングUIを即座に表示
         self.show_loading_ui()
@@ -421,7 +323,7 @@ class MainWindow(QMainWindow):
         if len(input_files) == 1:
             # 単一ファイル変換
             input_file = input_files[0]
-            output_file = Path(output_dir) / f"{Path(input_file).stem}.{output_format}"
+            output_file = Path(output_dir) / f"{Path(input_file).stem}.{output_ext}"
             self.worker.run(input_file, str(output_file), extra_args)
         else:
             # 複数ファイル処理
@@ -432,15 +334,15 @@ class MainWindow(QMainWindow):
                     custom_name = self.ui.output_filename.text().strip()
                     # 拡張子を除去（もしあれば）
                     custom_name = custom_name.rsplit('.', 1)[0]
-                    output_file = Path(output_dir) / f"{custom_name}.{output_format}"
+                    output_file = Path(output_dir) / f"{custom_name}.{output_ext}"
                 else:
                     # デフォルトファイル名を生成
                     first_file_name = Path(input_files[0]).stem
-                    output_file = Path(output_dir) / f"{first_file_name}_merged.{output_format}"
+                    output_file = Path(output_dir) / f"{first_file_name}_merged.{output_ext}"
                 self.worker.run_merge(input_files, str(output_file), extra_args)
             else:
                 # 一括変換：各ファイルを個別に変換
-                self.worker.run_batch(input_files, output_dir, output_format, extra_args)
+                self.worker.run_batch(input_files, output_dir, output_ext, extra_args)
             
         self.current_output_dir = output_dir
         
@@ -563,43 +465,136 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "エラー", f"プロファイルの読み込みに失敗しました: {e}")
             
+    def _reset_ui_to_defaults(self):
+        """UI 全項目をデフォルト値にリセット (プロファイル読込前の前処理).
+
+        B-5-a: プロファイルに記述が無い項目はデフォルト値にリセットされる必要がある。
+        """
+        # 出力系
+        self.ui.output_format.setCurrentText("pdf")
+        idx = self.ui.pdf_engine.findText("xelatex")
+        if idx >= 0:
+            self.ui.pdf_engine.setCurrentIndex(idx)
+        self.ui.output_filename.setText("")
+
+        # 共通組版
+        self.ui.font_size.setCurrentText("")
+        self.ui.paper_size.setCurrentText("")
+        if hasattr(self.ui, "linestretch"):
+            self.ui.linestretch.setText("")
+        self.ui.margin_top.setText("")
+        self.ui.margin_bottom.setText("")
+        self.ui.margin_left.setText("")
+        self.ui.margin_right.setText("")
+        self.ui.footskip.setText("")
+        self.ui.markdown_extensions.setText("markdown+hard_line_breaks")
+
+        # チェック群
+        self.ui.wrap_preserve.setChecked(True)
+        self.ui.table_of_contents.setChecked(False)
+        self.ui.number_sections.setChecked(False)
+        self.ui.standalone.setChecked(True)
+        self.ui.citeproc.setChecked(False)
+        self.ui.pandoc_crossref.setChecked(False)
+
+        # LaTeX 詳細
+        self.ui.document_class.setText("bxjsarticle")
+        self.ui.class_option.setText("pandoc")
+
+        # その他
+        self.ui.lua_filter.setText("")
+        self.ui.template_file.setText("")
+        self.ui.custom_args.setPlainText("")
+        self.ui.merge_files.setChecked(True)
+
     def apply_profile_to_ui(self, profile_data: Dict[str, Any]):
-        """プロファイルデータをUIに適用"""
+        """プロファイルデータを UI に適用.
+
+        v2 スキーマ (engine: 等を含む) と v1 スキーマ (extra_args ベース) の両方を処理する。
+        どちらの場合も、まず UI をデフォルトにリセットしてから profile の値を上書きする。
+        """
+        # まず UI をデフォルトに戻す (B-5-a: 完全同期)
+        self._reset_ui_to_defaults()
+
+        if is_v2_profile(profile_data):
+            self._apply_profile_v2(profile_data)
+        else:
+            self._apply_profile_v1(profile_data)
+
+    def _apply_profile_v2(self, profile_data: Dict[str, Any]):
+        """v2 スキーマ (論理値ベース) のプロファイルを UI に適用."""
+
+        def set_text(widget_name: str, key: str):
+            if key in profile_data and hasattr(self.ui, widget_name):
+                getattr(self.ui, widget_name).setText(str(profile_data[key]))
+
+        def set_combo(widget_name: str, key: str):
+            if key in profile_data:
+                widget = getattr(self.ui, widget_name)
+                idx = widget.findText(str(profile_data[key]))
+                if idx >= 0:
+                    widget.setCurrentIndex(idx)
+
+        def set_check(widget_name: str, key: str):
+            if key in profile_data:
+                getattr(self.ui, widget_name).setChecked(bool(profile_data[key]))
+
+        # 出力系
+        set_combo("output_format", "output_format")
+        set_combo("pdf_engine", "engine")
+        set_text("output_filename", "output_filename")
+
+        # 共通組版
+        set_combo("font_size", "fontsize")
+        set_combo("paper_size", "paper")
+        set_text("linestretch", "linestretch")
+        set_text("margin_top", "margin_top")
+        set_text("margin_bottom", "margin_bottom")
+        set_text("margin_left", "margin_left")
+        set_text("margin_right", "margin_right")
+        set_text("footskip", "footskip")
+        set_text("markdown_extensions", "markdown_extensions")
+
+        # チェック群
+        set_check("wrap_preserve", "wrap_preserve")
+        set_check("table_of_contents", "toc")
+        set_check("number_sections", "number_sections")
+        set_check("standalone", "standalone")
+        set_check("citeproc", "citeproc")
+        set_check("pandoc_crossref", "pandoc_crossref")
+
+        # LaTeX 詳細
+        set_text("document_class", "documentclass")
+        set_text("class_option", "classoption")
+
+        # その他
+        set_text("lua_filter", "lua_filter")
+        set_text("template_file", "template")
+        set_check("merge_files", "merge_files")
+
+        # custom_args (リスト → 1 行 1 要素)
+        custom = profile_data.get("custom_args", [])
+        if custom:
+            self.ui.custom_args.setPlainText("\n".join(str(a) for a in custom))
+
+    def _apply_profile_v1(self, profile_data: Dict[str, Any]):
+        """v1 スキーマ (extra_args ベース) の互換読込. engine 未指定 = latex 系として処理."""
         # 出力形式
         output_format = profile_data.get('output_format', 'pdf')
         index = self.ui.output_format.findText(output_format)
         if index >= 0:
             self.ui.output_format.setCurrentIndex(index)
-            
-        # 追加引数から各UI要素に反映
+
+        # 追加引数から各 UI 要素に反映
         extra_args = profile_data.get('extra_args', [])
-        
-        # チェックボックスの状態をリセット
+
+        # v1 では initial state ではなく、extra_args の中身で再構築するため
+        # 一部チェックを再リセット (defaults と異なるもの)
         self.ui.wrap_preserve.setChecked(False)
-        self.ui.table_of_contents.setChecked(False)
-        self.ui.number_sections.setChecked(False)
-        self.ui.citeproc.setChecked(False)
-        self.ui.pandoc_crossref.setChecked(False)
         self.ui.standalone.setChecked(False)
-        
-        # テキストフィールドをリセット
-        self.ui.document_class.clear()
-        self.ui.class_option.clear()
-        self.ui.markdown_extensions.clear()
-        
-        # 詳細マージン設定をリセット
-        self.ui.margin_top.clear()
-        self.ui.margin_bottom.clear()
-        self.ui.margin_left.clear()
-        self.ui.margin_right.clear()
-        self.ui.footskip.clear()
-        
-        # コンボボックスをリセット
-        self.ui.font_size.setCurrentText("")
-        self.ui.paper_size.setCurrentText("")
-        
-        # カスタム引数フィールドをクリア
-        self.ui.custom_args.clear()
+        self.ui.markdown_extensions.setText("")
+        self.ui.document_class.setText("")
+        self.ui.class_option.setText("")
         
         # 引数を解析してUIに設定
         unprocessed_args = []  # 未処理の引数を収集
@@ -702,21 +697,64 @@ class MainWindow(QMainWindow):
         
         
     def save_current_profile(self):
-        """現在の設定をプロファイルとして保存"""
+        """現在の設定をプロファイルとして保存 (v2 スキーマ).
+
+        B-4-c: UI 上未設定の項目は YAML から省略する。
+        """
         profile_name = self.ui.profile_name.text().strip()
         if not profile_name:
             QMessageBox.warning(self, "エラー", "プロファイル名を入力してください。")
             return
-            
-        # 現在のUI設定を収集
-        profile_data = {
-            "output_format": self.ui.output_format.currentText(),
-            "extra_args": self.collect_extra_args(),
-            "lua_filter": self.ui.lua_filter.text().strip(),
-            "template": self.ui.template_file.text().strip(),
-            "merge_files": self.ui.merge_files.isChecked(),
-            "output_filename": self.ui.output_filename.text().strip(),
+
+        cfg = self.build_logical_config()
+        profile_data: Dict[str, Any] = {
+            "schema_version": SCHEMA_VERSION,
+            "output_format": cfg.output_format,
+            "engine": cfg.engine,
         }
+
+        # 値がある項目のみ保存 (空欄やデフォルト値は省略)
+        def add_if(key: str, value):
+            if value is not None and value != "":
+                profile_data[key] = value
+
+        add_if("fontsize", cfg.fontsize)
+        add_if("paper", cfg.paper)
+        add_if("linestretch", cfg.linestretch)
+        add_if("margin_top", cfg.margin_top)
+        add_if("margin_bottom", cfg.margin_bottom)
+        add_if("margin_left", cfg.margin_left)
+        add_if("margin_right", cfg.margin_right)
+        add_if("footskip", cfg.footskip)
+        add_if("markdown_extensions", cfg.markdown_extensions)
+        add_if("documentclass", cfg.documentclass)
+        add_if("classoption", cfg.classoption)
+        add_if("template", cfg.template_file)
+        add_if("lua_filter", cfg.lua_filter)
+
+        # bool フラグはデフォルトと異なるときのみ保存
+        if cfg.toc:
+            profile_data["toc"] = True
+        if cfg.number_sections:
+            profile_data["number_sections"] = True
+        if not cfg.standalone:
+            profile_data["standalone"] = False
+        if cfg.citeproc:
+            profile_data["citeproc"] = True
+        if cfg.pandoc_crossref:
+            profile_data["pandoc_crossref"] = True
+        if not cfg.wrap_preserve:
+            profile_data["wrap_preserve"] = False
+
+        if cfg.custom_args:
+            profile_data["custom_args"] = list(cfg.custom_args)
+
+        # UI 専用 (LogicalConfig に含まれない) 項目
+        if not self.ui.merge_files.isChecked():
+            profile_data["merge_files"] = False
+        output_filename = self.ui.output_filename.text().strip()
+        if output_filename:
+            profile_data["output_filename"] = output_filename
         
         if save_profile(profile_name, profile_data):
             QMessageBox.information(self, "完了", f"プロファイル '{profile_name}' を保存しました。")
