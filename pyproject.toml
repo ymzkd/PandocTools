@@ -11,14 +11,22 @@ dependencies = [
 ]
 
 [project.scripts]
-pandoc-gui = "src.main:main"
+# CLI (Qt 非依存)。uv tool install / pip install で `pandoctools` として PATH に出る
+pandoctools = "cli:main"
+# GUI エントリ
+pandoc-gui = "main:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+# src/ 直下のフラットなモジュール (cli, common, engines, config ...) を
+# top-level モジュールとして配置する (src/ プレフィックスを除去)。
+# これにより `from common import ...` 等の既存 import と `python src/main.py` 実行を維持したまま
+# editable install でき、エントリポイント cli:main / main:main が解決する。
+only-include = ["src"]
+sources = ["src"]
 
 [tool.uv]
 dev-dependencies = [
