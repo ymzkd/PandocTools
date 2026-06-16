@@ -1,0 +1,13 @@
+schema_version: 2
+output_format: pdf
+engine: typst
+fontsize: 10pt
+paper: a4paper
+margin_top: 20mm
+margin_bottom: 20mm
+margin_left: 15mm
+margin_right: 15mm
+wrap_preserve: true
+standalone: true
+markdown_extensions: markdown+hard_line_breaks
+merge_files: true

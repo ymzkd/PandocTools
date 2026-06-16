@@ -241,7 +241,11 @@ class TypstAdapter(EngineAdapter):
 
     def _filters(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:
         args: List[str] = []
-        # default_filter.lua は LaTeX 数式環境を RawInline("latex") に変換するため Typst では適用しない
+        # default_filter.lua は LaTeX 数式環境を RawInline("latex") に変換するため Typst では適用しない。
+        # 代わりに typst_tag.lua で \tag{...} の式番号を右寄せ復元する (typst writer は \tag を捨てるため)
+        tag_filter = resource_dir / "filters" / "typst_tag.lua"
+        if tag_filter.exists():
+            args.extend(["--lua-filter", str(tag_filter)])
         if cfg.lua_filter:
             args.extend(["--lua-filter", cfg.lua_filter])
         # pandoc-crossref は Typst writer 未対応のためスキップ
