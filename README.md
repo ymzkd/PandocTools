@@ -14,11 +14,15 @@ Pandoc GUI Converterは、コマンドラインでのPandoc操作を直感的な
 - **プロファイル管理**: よく使うオプション組み合わせをYAMLで保存・読み込み
 - **リアルタイム出力**: 変換中の進行状況とエラーをリアルタイム表示
 - **豊富なオプション**: Pandocの主要オプションをGUIで設定可能
+- **複数エンジン対応**: PDFエンジンとしてxelatex等のLaTeX系に加えTypstも選択可能
+- **CLI版**: GUIと同じプリセット・変換ロジックをコマンドライン（`pandoctools`）からも利用可能
 
 ## 必要な環境
 
 - Python 3.9以上
 - Pandoc (別途インストールが必要)
+- TeX Live または MiKTeX (PDF/LaTeX出力時)
+- Typst (Optional, Typst出力時)
 - pandoc-crossref (Optional)
 
 ## インストール・実行方法
@@ -30,9 +34,50 @@ pip install uv
 # 環境・パッケージセットアップ
 uv sync
 
-# アプリケーションの実行
+# GUIアプリケーションの実行
 uv run src/main.py
 ```
+
+> `.venv` が壊れている場合（別マシンでの作成物がクラウド同期されたとき等）は、`.venv` を削除して `uv sync` で作り直してください。
+
+## CLI（コマンドライン版）
+
+GUIと同じプリセット（プロファイル）・変換ロジックを、コマンドラインからも利用できます。GUIのカスタム設定で変換が失敗するケースを再現・切り分けしたり、AIエージェントに修正を依頼したりする用途に向いています。CLIはQtに依存せず、`pandoc` / `typst` / `xelatex` がPATHにあれば動作します。
+
+### インストール
+
+`pandoctools` コマンドをPATHに導入します（隔離環境にインストールされ、GUI用の`.venv`とは独立します）。
+
+```powershell
+# 開発（editable）インストール
+uv tool install --editable .
+#   または pipx install -e .
+```
+
+### 使い方
+
+```powershell
+# 既定プロファイル（xelatex）で変換
+pandoctools convert input.md
+
+# Typstデフォルト設定で変換
+pandoctools convert input.md --profile typst
+
+# プロファイルをベースに一部だけ上書き
+pandoctools convert input.md --profile compact --engine lualatex --fontsize 12pt --toc
+
+# 実行せず、組み立てたpandocフルコマンドと設定を確認（切り分け用）
+pandoctools convert input.md --dry-run
+
+# 中間ソース（.tex/.typ）を出力して原因を調査
+pandoctools convert input.md --to tex   -o out.tex
+pandoctools convert input.md --engine typst --to typst -o out.typ
+
+# 利用可能なプロファイル一覧
+pandoctools profiles
+```
+
+複数の入力ファイルは既定で結合（merge）され、`--batch`で個別変換になります。`.bib`ファイルは参考文献として自動認識されます。変換失敗時は、エラー行が中間ソース（.tex/.typ）の行であることや`--to`での調査方法を案内するヒントを表示します。
 
 ## 使用方法
 
@@ -300,23 +345,31 @@ release/
 ```
 pandoc-gui/
 ├─ .venv/                    # uv管理の仮想環境
-├─ profiles/                 # YAML設定ファイル
-│   ├─ default.yml          # デフォルトプロファイル
-│   └─ sample_html.yml      # HTMLサンプルプロファイル
+├─ profiles/                 # YAML設定ファイル（プロファイル）
+│   ├─ default.yml          # デフォルト（xelatex）
+│   ├─ compact.yml          # コンパクト設定
+│   └─ typst.yml            # Typst出力設定
 ├─ src/
-│   ├─ main.py              # メインアプリケーション
-│   ├─ ui_main.py           # GUI定義
-│   ├─ pandoc_process.py    # 非同期Pandoc実行
-│   ├─ config.py            # プロファイル管理
-│   └─ filters/             # 内蔵フィルター
-│       └─ default_filter.lua  # 数式処理フィルター（常時適用）
-└─ pyproject.toml           # プロジェクト設定
+│   ├─ main.py              # GUIメインアプリケーション
+│   ├─ cli.py               # CLIエントリ（pandoctools）
+│   ├─ ui_main.py           # GUI定義（自動生成）
+│   ├─ pandoc_process.py    # 非同期Pandoc実行（GUI用）
+│   ├─ engines.py           # EngineAdapter（LaTeX/Typst向け引数生成）
+│   ├─ config.py            # プロファイル管理（v1/v2）
+│   ├─ common.py            # 共通定数・パス解決
+│   ├─ defaults.py          # プロジェクトファイル（Pandoc defaults）処理
+│   ├─ filters/             # 内蔵Luaフィルター
+│   │   ├─ default_filter.lua   # LaTeX数式環境の処理（LaTeX系で常時適用）
+│   │   └─ typst_tag.lua        # Typstで \tag 式番号を右寄せ復元
+│   └─ templates/           # LaTeXヘッダ・CSL・Typstテンプレート
+└─ pyproject.toml           # プロジェクト設定（GUI/CLIのエントリポイント定義）
 ```
 
 ### 技術スタック
 
 - **PyQt6**: GUIフレームワーク
 - **QProcess**: 非同期プロセス実行
-- **uv**: 高速パッケージ管理
+- **EngineAdapter**: 論理設定 → エンジン別Pandoc引数の変換層（LaTeX / Typst）
+- **uv**: 高速パッケージ管理・CLIツール導入（`uv tool install`）
 - **YAML**: 設定ファイル形式
 - **PyInstaller**: 実行ファイル作成 

@@ -189,3 +189,6 @@ Thumbs.db
 
 # SVG conversion intermediate files (Inkscape)
 **/svg-inkscape/
+
+# サンプル/検証用のスクラッチ素材（リポジトリには含めない）
+sample/
