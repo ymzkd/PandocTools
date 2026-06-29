@@ -56,9 +56,10 @@
   fontsize: 10pt,
   mathfont: none,
   codefont: none,
-  // CJK フォント (Pandoc 変数 cjk-mainfont / cjk-sansfont で上書き)
-  cjk-mainfont: "Yu Mincho",
-  cjk-sansfont: "Yu Gothic",
+  // CJK フォント (Pandoc 変数 cjk-mainfont / cjk-sansfont で上書き)。
+  // 既定 none のときは js.with() へ渡さず、js パッケージ既定 (原ノ味) に委ねる。
+  cjk-mainfont: none,
+  cjk-sansfont: none,
   linestretch: 1.0,
   sectionnumbering: none,
   pagenumbering: "1 / 1",
@@ -68,15 +69,21 @@
   cols: 1,
   doc,
 ) = {
-  // jsarticle 風レイアウト (フォントは fallback まで含めて指定)
+  // 和文フォントは未指定 (none) のとき js.with() へ渡さず、js パッケージ既定
+  // (Harano Aji Mincho / Harano Aji Gothic = 原ノ味) をそのまま使わせる。
+  // Pandoc 変数 cjk-mainfont / cjk-sansfont が指定された場合のみ上書きする。
+  let cjk-fonts = (:)
+  if cjk-mainfont != none { cjk-fonts.insert("seriffont-cjk", cjk-mainfont) }
+  if cjk-sansfont != none { cjk-fonts.insert("sansfont-cjk", cjk-sansfont) }
+
+  // jsarticle 風レイアウト (欧文フォントは fallback まで含めて指定)
   show: js.with(
     lang: lang,
     paper: paper,
     fontsize: fontsize,
     seriffont: if font != none { font.at(0, default: "New Computer Modern") } else { "New Computer Modern" },
-    sansfont: if font != none { font.at(0, default: "DejaVu Sans") } else { "DejaVu Sans" },
-    seriffont-cjk: cjk-mainfont,
-    sansfont-cjk: cjk-sansfont,
+    sansfont: if font != none { font.at(0, default: "Source Sans Pro") } else { "Source Sans Pro" },
+    ..cjk-fonts,
   )
 
   // 個別マージン指定があれば margin に反映
