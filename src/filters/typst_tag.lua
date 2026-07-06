@@ -7,7 +7,16 @@
 --
 -- 方針:
 --   1. DisplayMath から \tag{...} を取り除いた本体を pandoc に typst へ変換させる
---   2. 得られた "$ BODY $" の閉じ前に #h(1fr) "(番号)" を差し込み右寄せ表示にする
+--   2. 得られた "$ BODY $" を Typst ネイティブの数式番号機能でラップし、番号を
+--      本文右端へ右寄せ配置する
+--
+-- 右寄せの実現方法:
+--   当初は "$ BODY #h(1fr) "(番号)" $" としていたが、Typst のブロック数式は
+--   内容幅にフィットして中央寄せされるため、#h(1fr) が数式ボックス内で閉じ、
+--   番号が数式のすぐ右に留まって本文右端まで届かなかった。
+--   そこで #set math.equation(numbering: _ => "(番号)") で Typst 標準の数式番号
+--   レイアウト (数式は本文中央・番号は本文右端) を使う。番号カウンタ値は無視し、
+--   原文の tag 文字列をそのまま固定表示する。
 --
 -- 適用範囲: TypstAdapter からのみ。LaTeX 経路では \tag がそのまま機能するため不要。
 
@@ -36,6 +45,12 @@ function Math(el)
     return nil
   end
 
-  local out = "$ " .. inner .. ' #h(1fr) "(' .. tag .. ')" $'
+  -- tag を Typst 文字列リテラルへ埋め込むため \ と " をエスケープ
+  local tag_str = tag:gsub("\\", "\\\\"):gsub('"', '\\"')
+
+  -- 数式単体をコンテンツブロックで包み、その中だけ数式番号を有効化する。
+  -- numbering 関数は番号カウンタを無視して原文 tag を固定表示する。
+  local out = '#[#set math.equation(numbering: _ => "(' .. tag_str .. ')")\n$ '
+    .. inner .. ' $]'
   return pandoc.RawInline("typst", out)
 end

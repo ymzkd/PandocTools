@@ -101,9 +101,11 @@
     numbering: pagenumbering,
   )
 
-  if sectionnumbering != none {
-    set heading(numbering: sectionnumbering)
-  }
+  // js パッケージは既定で set heading(numbering: "1.1") を設定するため、
+  // --number-sections 無効時 (sectionnumbering == none) でも見出し番号が
+  // 自動で振られてしまう。sectionnumbering を常に set して js の既定を打ち消す
+  // (none のときは番号なし、指定時はその形式で採番)。
+  set heading(numbering: sectionnumbering)
 
   set math.equation(numbering: none)
   set par(leading: 0.65em * linestretch)
