@@ -28,6 +28,12 @@ _TYPST_PAPER_MAP = {
 # output_format 名 → 出力ファイル拡張子 (Pandoc 互換)
 _OUTPUT_EXT_MAP = {"typst": "typ"}
 
+# --columns の既定値。
+# Pandoc はパイプ表のソース行幅が --columns (既定 72) を超えると、区切り行の
+# ダッシュ数比で列幅を固定する (LaTeX は p{}, Typst は %)。すると幅の狭い列で
+# セルが折り返し、行高が不揃いになる。十分大きな値にして列幅を自動に戻す。
+DEFAULT_COLUMNS = 999
+
 
 @dataclass
 class LogicalConfig:
@@ -67,6 +73,11 @@ class LogicalConfig:
     classoption: Optional[str] = None
 
 
+def _has_custom_columns(cfg: LogicalConfig) -> bool:
+    """カスタム引数で --columns が明示されているか."""
+    return any(a == "--columns" or a.startswith("--columns=") for a in cfg.custom_args)
+
+
 def is_typst_mode(cfg: LogicalConfig) -> bool:
     """typst モード判定 (engine=typst もしくは output_format=typst)."""
     return cfg.engine == "typst" or cfg.output_format == "typst"
@@ -102,6 +113,8 @@ class EngineAdapter:
     # --- フック (engine 別にオーバライド) ---
     def _common_args(self, cfg: LogicalConfig) -> List[str]:
         args: List[str] = []
+        if not _has_custom_columns(cfg):
+            args.append(f"--columns={DEFAULT_COLUMNS}")
         if cfg.wrap_preserve:
             args.append("--wrap=preserve")
         if cfg.toc:

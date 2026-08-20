@@ -89,6 +89,7 @@ profiles/                # YAML configuration files
 ### Default Pandoc Arguments
 The application always applies these base arguments:
 - `--lua-filter=src/filters/default_filter.lua` (built-in filter)
+- `--columns=999` (engines.py `DEFAULT_COLUMNS`): prevents Pandoc from fixing pipe-table column widths from the separator-row dash counts, which would otherwise wrap cells and produce uneven row heights. Overridden if the user supplies `--columns` in custom args.
 - User-configurable options via GUI tabs
 
 ### Profile Format (YAML)

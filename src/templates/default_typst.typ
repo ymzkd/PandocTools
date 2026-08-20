@@ -21,11 +21,6 @@
     .join()
 }
 
-#set table(
-  inset: 6pt,
-  stroke: 0.5pt,
-)
-
 #show figure.where(kind: table): set figure.caption(position: $if(table-caption-position)$$table-caption-position$$else$top$endif$)
 
 #show figure.where(kind: image): set figure.caption(position: $if(figure-caption-position)$$figure-caption-position$$else$bottom$endif$)
@@ -109,6 +104,15 @@
 
   set math.equation(numbering: none)
   set par(leading: 0.65em * linestretch)
+
+  // js パッケージは set table(stroke: 0.04em) で全セルに格子罫線を引く。
+  // Pandoc の LaTeX writer は booktabs 固定なので、出力の見た目を揃えるため
+  // ここで打ち消し、上下の太罫線 + ヘッダ下の細罫線だけにする。
+  // (js の set より内側でないと効かないため、トップレベルではなくここに置く)
+  set table(inset: 6pt, stroke: none)
+  // stroke: none にすると Pandoc がヘッダ直後に出す table.hline() も消えるため個別指定
+  set table.hline(stroke: 0.5pt)
+  show table: it => block(stroke: (top: 0.8pt, bottom: 0.8pt), inset: (y: 4pt), it)
 
   if title != none {
     let author-str = if type(authors) == array and authors.len() > 0 {
