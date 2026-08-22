@@ -224,7 +224,8 @@ class TypstAdapter(EngineAdapter):
     - LaTeX 専用項目 (documentclass / classoption / footskip / shell-escape) は黙って無視
     - paper は _TYPST_PAPER_MAP で変換
     - margin は個別 -V margin-XXX 変数で渡す
-    - default_filter.lua と pandoc-crossref は LaTeX 専用なのでスキップ (A-2-e, A-2-f)
+    - default_filter.lua は LaTeX 専用なのでスキップ (A-2-e)
+    - pandoc-crossref は typst でも有効。typst_tag.lua より前段に置く (A-2-f)
     - CSL パスは Windows でも `\\` を `/` に正規化 (A-2-g)
     - ユーザー指定テンプレが無いときのみ default_typst.typ を適用
     """
@@ -254,6 +255,14 @@ class TypstAdapter(EngineAdapter):
 
     def _filters(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:
         args: List[str] = []
+        # pandoc-crossref は AST 段階で動くため typst writer でも機能する。
+        # ただし typst_tag.lua が \tag 付き DisplayMath を RawInline("typst") へ畳むと
+        # 直後の {#eq:...} 属性を crossref が拾えなくなるため、必ず typst_tag.lua より前段に置く。
+        # 未適用のまま typst へ渡すと crossref 記法が Typst ネイティブの参照/引用構文
+        # (@eq:x, #cite(<x>)) として出力され、未解決参照で Typst のコンパイルエラーになる
+        # (LaTeX は警告止まりだが Typst はハードエラー)。
+        if cfg.pandoc_crossref:
+            args.extend(["--filter", "pandoc-crossref"])
         # default_filter.lua は LaTeX 数式環境を RawInline("latex") に変換するため Typst では適用しない。
         # 代わりに typst_tag.lua で \tag{...} の式番号を右寄せ復元する (typst writer は \tag を捨てるため)
         tag_filter = resource_dir / "filters" / "typst_tag.lua"
@@ -261,7 +270,6 @@ class TypstAdapter(EngineAdapter):
             args.extend(["--lua-filter", str(tag_filter)])
         if cfg.lua_filter:
             args.extend(["--lua-filter", cfg.lua_filter])
-        # pandoc-crossref は Typst writer 未対応のためスキップ
         return args
 
     def _template(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:

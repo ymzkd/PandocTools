@@ -282,7 +282,7 @@ class Ui_MainWindow:
         self.standalone.setChecked(True)
         checkbox_layout.addWidget(self.standalone, 2, 0)
 
-        self.pandoc_crossref = QCheckBox("相互参照処理 (pandoc-crossref ※LaTeX のみ)")
+        self.pandoc_crossref = QCheckBox("相互参照処理 (pandoc-crossref)")
         checkbox_layout.addWidget(self.pandoc_crossref, 2, 1)
 
         common_outer.addWidget(checkbox_group)

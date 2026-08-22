@@ -193,11 +193,20 @@ def test_typst_skips_default_filter():
     assert not any("default_filter.lua" in a for a in args)
 
 
-def test_typst_skips_pandoc_crossref():
-    """typst モードでは pandoc-crossref をスキップ (A-2-f)."""
+def test_typst_includes_pandoc_crossref():
+    """typst モードでも pandoc-crossref を適用する (A-2-f)."""
     cfg = LogicalConfig(engine="typst", pandoc_crossref=True)
     args = TypstAdapter().build_args(cfg, RESOURCE_DIR)
-    assert "pandoc-crossref" not in args
+    assert "pandoc-crossref" in args
+
+
+def test_typst_crossref_precedes_typst_tag_filter():
+    """crossref は typst_tag.lua より前段に置く (後段だと {#eq:...} を拾えない)."""
+    cfg = LogicalConfig(engine="typst", pandoc_crossref=True)
+    args = TypstAdapter().build_args(cfg, RESOURCE_DIR)
+    crossref_i = args.index("pandoc-crossref")
+    tag_i = next(i for i, a in enumerate(args) if "typst_tag.lua" in a)
+    assert crossref_i < tag_i
 
 
 def test_typst_user_lua_filter_kept():
