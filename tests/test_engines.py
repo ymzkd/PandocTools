@@ -209,6 +209,29 @@ def test_typst_crossref_precedes_typst_tag_filter():
     assert crossref_i < tag_i
 
 
+def test_typst_crossref_adds_tag_filter():
+    """crossref 有効時は式番号差し替えフィルタと linkReferences を付ける."""
+    cfg = LogicalConfig(engine="typst", pandoc_crossref=True)
+    args = TypstAdapter().build_args(cfg, RESOURCE_DIR)
+    assert any("typst_crossref_tag.lua" in a for a in args)
+    assert "linkReferences=true" in args
+
+
+def test_typst_without_crossref_omits_tag_filter():
+    """crossref 無効時は式番号差し替えも linkReferences も付けない."""
+    cfg = LogicalConfig(engine="typst", pandoc_crossref=False)
+    args = TypstAdapter().build_args(cfg, RESOURCE_DIR)
+    assert not any("typst_crossref_tag.lua" in a for a in args)
+    assert "linkReferences=true" not in args
+
+
+def test_latex_omits_typst_filters():
+    """LaTeX 経路には typst 専用フィルタを混ぜない."""
+    cfg = LogicalConfig(pandoc_crossref=True)
+    args = LatexAdapter().build_args(cfg, RESOURCE_DIR)
+    assert not any("typst_tag.lua" in a or "typst_crossref_tag.lua" in a for a in args)
+
+
 def test_typst_user_lua_filter_kept():
     cfg = LogicalConfig(engine="typst", lua_filter="/tmp/user.lua")
     args = TypstAdapter().build_args(cfg, RESOURCE_DIR)

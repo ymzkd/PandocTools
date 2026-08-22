@@ -226,6 +226,7 @@ class TypstAdapter(EngineAdapter):
     - margin は個別 -V margin-XXX 変数で渡す
     - default_filter.lua は LaTeX 専用なのでスキップ (A-2-e)
     - pandoc-crossref は typst でも有効。typst_tag.lua より前段に置く (A-2-f)
+    - typst_crossref_tag.lua で crossref の式番号を原文 \tag の中身へ差し替え
     - CSL パスは Windows でも `\\` を `/` に正規化 (A-2-g)
     - ユーザー指定テンプレが無いときのみ default_typst.typ を適用
     """
@@ -263,6 +264,13 @@ class TypstAdapter(EngineAdapter):
         # (LaTeX は警告止まりだが Typst はハードエラー)。
         if cfg.pandoc_crossref:
             args.extend(["--filter", "pandoc-crossref"])
+            # crossref に参照を Link 化させる。式番号を \tag の中身へ差し替える
+            # typst_crossref_tag.lua が、参照箇所を位置や書式に頼らず特定できる
+            # (副次的に PDF 内リンクとしても機能する)
+            args.extend(["-M", "linkReferences=true"])
+            crossref_tag = resource_dir / "filters" / "typst_crossref_tag.lua"
+            if crossref_tag.exists():
+                args.extend(["--lua-filter", str(crossref_tag)])
         # default_filter.lua は LaTeX 数式環境を RawInline("latex") に変換するため Typst では適用しない。
         # 代わりに typst_tag.lua で \tag{...} の式番号を右寄せ復元する (typst writer は \tag を捨てるため)
         tag_filter = resource_dir / "filters" / "typst_tag.lua"
