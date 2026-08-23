@@ -12,6 +12,20 @@
 
 #let horizontalrule = line(start: (25%, 0%), end: (75%, 0%))
 
+// content を平文の文字列に落とす。
+// js パッケージの maketitle は最終的に document(author: ...) を呼ぶが、
+// これは str か array しか受け付けない。テンプレートは著者名を [$author$] と
+// content で埋め込むため、そのまま渡すと
+// "expected string or array, found content" で失敗する。
+#let content-to-str(value) = {
+  if type(value) == str { value }
+  else if type(value) == content {
+    if value.has("text") { value.text }
+    else if value.has("children") { value.children.map(content-to-str).join("") }
+    else { "" }
+  } else { "" }
+}
+
 #show terms: it => {
   it.children
     .map(child => [
@@ -117,7 +131,9 @@
   if title != none {
     let author-str = if type(authors) == array and authors.len() > 0 {
       authors
-        .map(a => if type(a) == dictionary { a.at("name", default: "") } else { a })
+        .map(a => content-to-str(
+          if type(a) == dictionary { a.at("name", default: "") } else { a }
+        ))
         .join(" / ")
     } else { "" }
 
