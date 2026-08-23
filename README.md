@@ -64,7 +64,7 @@ pandoctools convert input.md
 pandoctools convert input.md --profile typst
 
 # プロファイルをベースに一部だけ上書き
-pandoctools convert input.md --profile compact --engine lualatex --fontsize 12pt --toc
+pandoctools convert input.md --profile compact --engine xelatex --fontsize 12pt --toc
 
 # 実行せず、組み立てたpandocフルコマンドと設定を確認（切り分け用）
 pandoctools convert input.md --dry-run

@@ -332,7 +332,8 @@ def cmd_profiles(args: argparse.Namespace) -> int:
 
 def _add_override_flags(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("プロファイル上書き (指定したものだけ上書き)")
-    g.add_argument("--engine", help="pdf-engine / 組版エンジン (xelatex, lualatex, tectonic, typst ...)")
+    g.add_argument("--engine", choices=["typst", "xelatex"],
+                   help="組版エンジン (既定: typst)")
     g.add_argument("-t", "--to", "--output-format", dest="to",
                    help="出力フォーマット (pdf, typst, docx, html, tex ...)")
     g.add_argument("--fontsize")

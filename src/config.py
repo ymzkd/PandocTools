@@ -36,7 +36,7 @@ SCHEMA_VERSION = 2
 # (CLI が GUI と同じデフォルト挙動を再現するために必要)
 PROFILE_BASELINE: Dict[str, Any] = {
     "output_format": "pdf",
-    "engine": "xelatex",
+    "engine": "typst",
     "fontsize": None,
     "paper": None,
     "linestretch": None,
@@ -103,7 +103,7 @@ def get_default_profile() -> Dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "output_format": "pdf",
-        "engine": "xelatex",
+        "engine": "typst",
         "fontsize": "10pt",
         "paper": "a4paper",
         "margin_top": "20mm",
@@ -184,7 +184,7 @@ def _v2_to_logical(data: Dict[str, Any]) -> LogicalConfig:
     d = {**PROFILE_BASELINE, **data}
     return LogicalConfig(
         output_format=str(d.get("output_format") or "pdf"),
-        engine=str(d.get("engine") or "xelatex"),
+        engine=str(d.get("engine") or "typst"),
         fontsize=_norm(d.get("fontsize")),
         paper=_norm(d.get("paper")),
         margin_top=_norm(d.get("margin_top")),
@@ -217,7 +217,7 @@ def _v1_to_logical(data: Dict[str, Any]) -> LogicalConfig:
     """
     cfg = LogicalConfig(
         output_format=str(data.get("output_format") or "pdf"),
-        engine="xelatex",
+        engine="typst",
         # v1 baseline (reset 後の上書き)
         wrap_preserve=False,
         standalone=False,

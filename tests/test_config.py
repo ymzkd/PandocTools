@@ -37,7 +37,7 @@ def test_get_default_profile_is_v2(tmp_path, monkeypatch):
     data = cfg.get_default_profile()
     assert cfg.is_v2_profile(data)
     assert data["schema_version"] == cfg.SCHEMA_VERSION
-    assert data["engine"] == "xelatex"
+    assert data["engine"] == "typst"
     assert data["output_format"] == "pdf"
 
 

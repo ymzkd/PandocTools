@@ -203,7 +203,8 @@ class Ui_MainWindow:
 
         # PDF エンジン
         self.pdf_engine = QComboBox()
-        self.pdf_engine.addItems(["xelatex", "pdflatex", "lualatex", "tectonic", "typst", "wkhtmltopdf", "weasyprint"])
+        # 対応エンジンは typst / xelatex の 2 つに限定 (他はデバッグしていないため)
+        self.pdf_engine.addItems(["typst", "xelatex"])
         common_form.addRow("PDFエンジン:", self.pdf_engine)
 
         # Markdown拡張

@@ -2,7 +2,7 @@
 EngineAdapter: 論理的な組版設定 (LogicalConfig) を engine 別の Pandoc 引数に変換する層。
 
 - LogicalConfig : UI 状態を保持する engine 非依存の論理値
-- LatexAdapter  : 従来の xelatex / lualatex / pdflatex / tectonic などの LaTeX 系
+- LatexAdapter  : xelatex (LaTeX 系)
 - TypstAdapter  : --pdf-engine=typst または output_format=typst のとき
 
 主な責務:
@@ -41,7 +41,8 @@ class LogicalConfig:
 
     # 出力コンテキスト
     output_format: str = "pdf"
-    engine: str = "xelatex"
+    # 既定は typst。対応エンジンは typst / xelatex の 2 つに限定している
+    engine: str = "typst"
 
     # 共通組版
     fontsize: Optional[str] = None

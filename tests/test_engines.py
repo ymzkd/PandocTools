@@ -105,6 +105,14 @@ def test_latex_geometry_compound():
     assert "footskip=10mm" in geom
 
 
+def test_default_engine_is_typst():
+    """既定エンジンは typst (対応は typst / xelatex の 2 つのみ)."""
+    cfg = LogicalConfig()
+    assert cfg.engine == "typst"
+    assert is_typst_mode(cfg)
+    assert isinstance(get_adapter(cfg), TypstAdapter)
+
+
 def test_crossref_and_citeproc_enabled_by_default():
     """相互参照と引用処理はアプリ既定で有効."""
     assert LogicalConfig().pandoc_crossref is True

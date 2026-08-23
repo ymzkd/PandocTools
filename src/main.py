@@ -472,7 +472,7 @@ class MainWindow(QMainWindow):
         """
         # 出力系
         self.ui.output_format.setCurrentText("pdf")
-        idx = self.ui.pdf_engine.findText("xelatex")
+        idx = self.ui.pdf_engine.findText("typst")
         if idx >= 0:
             self.ui.pdf_engine.setCurrentIndex(idx)
         self.ui.output_filename.setText("")

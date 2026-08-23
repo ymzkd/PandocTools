@@ -78,10 +78,10 @@ src/
     └── default.csl          # Default citation style
 
 profiles/                # YAML configuration files
-├── default.yml          # Default PDF conversion settings
-├── compact.yml          # Compact document (small font, narrow margins)
-├── presentation.yml     # Presentation format (large font, wide margins)
-└── letter.yml           # Letter paper size format
+├── default.yml          # App default (typst engine)
+├── typst.yml            # Same as default.yml (kept for explicit selection)
+├── xelatex.yml          # LaTeX path (bxjsarticle)
+└── compact.yml          # Compact document (small font, narrow margins)
 ```
 
 ## Configuration
