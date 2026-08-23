@@ -105,6 +105,29 @@ def test_latex_geometry_compound():
     assert "footskip=10mm" in geom
 
 
+def test_crossref_and_citeproc_enabled_by_default():
+    """相互参照と引用処理はアプリ既定で有効."""
+    assert LogicalConfig().pandoc_crossref is True
+    assert LogicalConfig().citeproc is True
+    for engine in ("xelatex", "typst"):
+        cfg = LogicalConfig(engine=engine)
+        args = get_adapter(cfg).build_args(cfg, RESOURCE_DIR)
+        assert "pandoc-crossref" in args
+        assert "--citeproc" in args
+
+
+def test_citeproc_runs_after_filters():
+    """--citeproc は --filter pandoc-crossref より後に置く.
+
+    pandoc は指定順に適用するため、先に citeproc を走らせると crossref が
+    担当外の引用を "[@key]" へ書き戻し、citeproc の整形結果が失われる。
+    """
+    for engine in ("xelatex", "typst"):
+        cfg = LogicalConfig(engine=engine, citeproc=True, pandoc_crossref=True)
+        args = get_adapter(cfg).build_args(cfg, RESOURCE_DIR)
+        assert args.index("pandoc-crossref") < args.index("--citeproc")
+
+
 def test_latex_filters_include_pandoc_crossref():
     cfg = LogicalConfig(pandoc_crossref=True)
     args = LatexAdapter().build_args(cfg, RESOURCE_DIR)
@@ -271,9 +294,9 @@ def test_typst_csl_forward_slash_normalized():
 
 
 def test_csl_skipped_when_no_bibliography():
-    """bibliography 無しでは --csl を渡さない (typst の path sandbox 回避)."""
+    """bibliography も citeproc も無ければ --csl を渡さない (typst の path sandbox 回避)."""
     for adapter in [LatexAdapter(), TypstAdapter()]:
-        cfg = LogicalConfig(engine=adapter.name)
+        cfg = LogicalConfig(engine=adapter.name, citeproc=False)
         args = adapter.build_args(cfg, RESOURCE_DIR)
         assert "--csl" not in args
 

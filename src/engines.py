@@ -57,8 +57,10 @@ class LogicalConfig:
     toc: bool = False
     number_sections: bool = False
     standalone: bool = False
-    citeproc: bool = False
-    pandoc_crossref: bool = False
+    # 引用処理はアプリ既定で有効 (無効にしたいときだけ明示する)
+    citeproc: bool = True
+    # 相互参照はアプリ既定で有効 (無効にしたいときだけ明示する)
+    pandoc_crossref: bool = True
     wrap_preserve: bool = False
 
     # 入力 / フィルター / テンプレート
@@ -104,6 +106,12 @@ class EngineAdapter:
         args.extend(self._common_args(cfg))
         args.extend(self._engine_specific(cfg, resource_dir))
         args.extend(self._filters(cfg, resource_dir))
+        # --citeproc はフィルタの後に置く。pandoc は --citeproc / --filter を
+        # コマンドラインの順に適用するため、先に citeproc を走らせると
+        # pandoc-crossref が担当外の引用を "[@key]" という生テキストへ書き戻し、
+        # citeproc の整形結果が失われる (文献リストだけ残る壊れ方をする)。
+        if cfg.citeproc:
+            args.append("--citeproc")
         args.extend(self._template(cfg, resource_dir))
         args.extend(self._csl(cfg, resource_dir))
         args.extend(self._bibliography(cfg))
@@ -123,8 +131,6 @@ class EngineAdapter:
             args.append("--number-sections")
         if cfg.standalone:
             args.append("--standalone")
-        if cfg.citeproc:
-            args.append("--citeproc")
         if cfg.markdown_extensions:
             args.extend(["--from", cfg.markdown_extensions])
         if cfg.fontsize:

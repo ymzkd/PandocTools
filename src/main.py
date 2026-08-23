@@ -494,8 +494,8 @@ class MainWindow(QMainWindow):
         self.ui.table_of_contents.setChecked(False)
         self.ui.number_sections.setChecked(False)
         self.ui.standalone.setChecked(True)
-        self.ui.citeproc.setChecked(False)
-        self.ui.pandoc_crossref.setChecked(False)
+        self.ui.citeproc.setChecked(True)
+        self.ui.pandoc_crossref.setChecked(True)
 
         # LaTeX 詳細
         self.ui.document_class.setText("bxjsarticle")
@@ -739,10 +739,10 @@ class MainWindow(QMainWindow):
             profile_data["number_sections"] = True
         if not cfg.standalone:
             profile_data["standalone"] = False
-        if cfg.citeproc:
-            profile_data["citeproc"] = True
-        if cfg.pandoc_crossref:
-            profile_data["pandoc_crossref"] = True
+        if not cfg.citeproc:
+            profile_data["citeproc"] = False
+        if not cfg.pandoc_crossref:
+            profile_data["pandoc_crossref"] = False
         if not cfg.wrap_preserve:
             profile_data["wrap_preserve"] = False
 

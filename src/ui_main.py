@@ -276,6 +276,7 @@ class Ui_MainWindow:
         checkbox_layout.addWidget(self.number_sections, 1, 0)
 
         self.citeproc = QCheckBox("引用処理 (--citeproc)")
+        self.citeproc.setChecked(True)
         checkbox_layout.addWidget(self.citeproc, 1, 1)
 
         self.standalone = QCheckBox("スタンドアロン出力 (--standalone)")
@@ -283,6 +284,7 @@ class Ui_MainWindow:
         checkbox_layout.addWidget(self.standalone, 2, 0)
 
         self.pandoc_crossref = QCheckBox("相互参照処理 (pandoc-crossref)")
+        self.pandoc_crossref.setChecked(True)
         checkbox_layout.addWidget(self.pandoc_crossref, 2, 1)
 
         common_outer.addWidget(checkbox_group)
