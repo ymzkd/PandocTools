@@ -146,6 +146,17 @@ class EngineAdapter:
     def _filters(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:
         return []
 
+    @staticmethod
+    def _svg_filter(resource_dir: Path) -> List[str]:
+        """Markdown 直書きの <svg> と .svg 参照を PDF に載せるフィルタ。
+
+        latex / typst writer は raw HTML の <svg> を黙って捨て、![](x.svg) も
+        pandoc が rsvg-convert に丸投げするため未インストール環境では画像だけ
+        消える (終了コードは 0)。両方をこのフィルタ側で処理する。
+        """
+        svg = resource_dir / "filters" / "inline_svg.lua"
+        return ["--lua-filter", str(svg)] if svg.exists() else []
+
     def _template(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:
         return []
 
@@ -195,6 +206,7 @@ class LatexAdapter(EngineAdapter):
 
     def _filters(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:
         args: List[str] = []
+        args.extend(self._svg_filter(resource_dir))
         builtin = resource_dir / "filters" / "default_filter.lua"
         if builtin.exists():
             args.extend(["--lua-filter", str(builtin)])
@@ -263,6 +275,7 @@ class TypstAdapter(EngineAdapter):
 
     def _filters(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:
         args: List[str] = []
+        args.extend(self._svg_filter(resource_dir))
         # pandoc-crossref は AST 段階で動くため typst writer でも機能する。
         # ただし typst_tag.lua が \tag 付き DisplayMath を RawInline("typst") へ畳むと
         # 直後の {#eq:...} 属性を crossref が拾えなくなるため、必ず typst_tag.lua より前段に置く。

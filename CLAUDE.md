@@ -72,7 +72,10 @@ src/
 ├── config.py            # Profile management
 ├── defaults.py          # Pandoc defaults file processing
 ├── filters/
-│   └── default_filter.lua   # Built-in Lua filter (always applied)
+│   ├── default_filter.lua   # Built-in Lua filter (LaTeX only)
+│   ├── inline_svg.lua       # Inline <svg> / .svg references (both engines)
+│   ├── typst_tag.lua        # Restore \tag equation numbers (typst)
+│   └── typst_crossref_tag.lua # Map crossref numbers onto \tag (typst)
 └── templates/
     ├── latex_header_base.tex # LaTeX header with MaxMatrixCols
     └── default.csl          # Default citation style
@@ -88,7 +91,16 @@ profiles/                # YAML configuration files
 
 ### Default Pandoc Arguments
 The application always applies these base arguments:
-- `--lua-filter=src/filters/default_filter.lua` (built-in filter)
+- `--lua-filter=src/filters/default_filter.lua` (built-in filter; LaTeX only)
+- `--lua-filter=src/filters/inline_svg.lua` (both engines): Markdown に直書きされた
+  `<svg>...</svg>` (raw HTML) と `![](x.svg)` を PDF に載せる。latex/typst writer は
+  raw HTML の `<svg>` を黙って捨て、`.svg` 参照も pandoc が `rsvg-convert` に丸投げ
+  するため未インストール環境では画像だけ消える (終了コードは 0 のまま)。このフィルタが
+  typst では SVG ソースを `#image(bytes(...), format: "svg")` として埋め込み、LaTeX では
+  SVG を PDF に変換して `\includegraphics` に渡す。変換器は
+  `rsvg-convert` → `inkscape` → `typst` の順に自動検出する。
+  生成物は `%TEMP%/pandoctools-svg` に内容ハッシュ名でキャッシュされる
+  (`PANDOCTOOLS_SVG_DIR` で変更可)。
 - `--columns=999` (engines.py `DEFAULT_COLUMNS`): prevents Pandoc from fixing pipe-table column widths from the separator-row dash counts, which would otherwise wrap cells and produce uneven row heights. Overridden if the user supplies `--columns` in custom args.
 - User-configurable options via GUI tabs
 
