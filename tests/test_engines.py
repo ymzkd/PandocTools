@@ -361,3 +361,56 @@ def test_custom_args_passthrough():
     cfg = LogicalConfig(custom_args=["--metadata=author:foo"])
     args = LatexAdapter().build_args(cfg, RESOURCE_DIR)
     assert "--metadata=author:foo" in args
+
+
+# --- 式番号 (eq_numbers) ---
+
+
+def test_eq_numbers_disabled_by_default():
+    """既定では採番しない (\tag / {#eq:...} を書いた式だけ番号が付く)."""
+    assert LogicalConfig().eq_numbers is False
+    for adapter, engine in [(LatexAdapter(), "xelatex"), (TypstAdapter(), "typst")]:
+        args = adapter.build_args(LogicalConfig(engine=engine), RESOURCE_DIR)
+        assert "eq-numbers=true" not in args
+
+
+def test_eq_numbers_passes_meta_flag_to_both_engines():
+    """採番の有効/無効は engine によらず同じメタ変数でフィルタへ渡す."""
+    for adapter, engine in [(LatexAdapter(), "xelatex"), (TypstAdapter(), "typst")]:
+        cfg = LogicalConfig(engine=engine, eq_numbers=True)
+        args = adapter.build_args(cfg, RESOURCE_DIR)
+        assert "eq-numbers=true" in args
+        assert args[args.index("eq-numbers=true") - 1] == "-M"
+
+
+def test_latex_always_includes_eq_number_filter():
+    r"""eq_number.lua は \nonumber の除去も担うので採番が無効でも適用する."""
+    for eq_numbers in (False, True):
+        cfg = LogicalConfig(eq_numbers=eq_numbers)
+        args = LatexAdapter().build_args(cfg, RESOURCE_DIR)
+        assert any("eq_number.lua" in a for a in args)
+
+
+def test_latex_eq_number_filter_follows_crossref():
+    """crossref はラベル付き式を equation へ畳むため、採番はその後段で判定する."""
+    cfg = LogicalConfig(pandoc_crossref=True, eq_numbers=True)
+    args = LatexAdapter().build_args(cfg, RESOURCE_DIR)
+    crossref_i = args.index("pandoc-crossref")
+    eq_i = next(i for i, a in enumerate(args) if "eq_number.lua" in a)
+    assert crossref_i < eq_i
+
+
+def test_typst_omits_latex_eq_number_filter():
+    """eq_number.lua は LaTeX 専用 (typst は typst_crossref_tag.lua が採番する)."""
+    cfg = LogicalConfig(engine="typst", eq_numbers=True)
+    args = TypstAdapter().build_args(cfg, RESOURCE_DIR)
+    assert not any("eq_number.lua" in a for a in args)
+
+
+def test_typst_eq_numbers_needs_tag_filter_without_crossref():
+    """crossref を切っていても、採番するなら typst 側の採番フィルタは要る."""
+    cfg = LogicalConfig(engine="typst", pandoc_crossref=False, eq_numbers=True)
+    args = TypstAdapter().build_args(cfg, RESOURCE_DIR)
+    assert any("typst_crossref_tag.lua" in a for a in args)
+    # crossref 自体は無効なので参照の Link 化は不要
+    assert "linkReferences=true" not in args

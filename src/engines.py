@@ -62,6 +62,8 @@ class LogicalConfig:
     citeproc: bool = True
     # 相互参照はアプリ既定で有効 (無効にしたいときだけ明示する)
     pandoc_crossref: bool = True
+    # display 数式への通し番号。既定は無効 (\tag / {#eq:...} を書いた式だけ番号が付く)
+    eq_numbers: bool = False
     wrap_preserve: bool = False
 
     # 入力 / フィルター / テンプレート
@@ -134,6 +136,10 @@ class EngineAdapter:
             args.append("--standalone")
         if cfg.markdown_extensions:
             args.extend(["--from", cfg.markdown_extensions])
+        if cfg.eq_numbers:
+            # 採番フィルタ (eq_number.lua / typst_crossref_tag.lua) への指示。
+            # engine ごとに実現手段は違うが、有効/無効の判定は同じメタ変数で行う。
+            args.extend(["-M", "eq-numbers=true"])
         if cfg.fontsize:
             args.extend(["-V", f"fontsize={cfg.fontsize}"])
         if cfg.linestretch:
@@ -214,6 +220,12 @@ class LatexAdapter(EngineAdapter):
             args.extend(["--lua-filter", cfg.lua_filter])
         if cfg.pandoc_crossref:
             args.extend(["--filter", "pandoc-crossref"])
+        # eq_number.lua は crossref の後に置く。crossref はラベル付き式を
+        # RawInline("latex") の equation 環境へ畳むため、後段なら二重に包まない。
+        # \nonumber の除去は採番が無効でも必要なので、常に適用する。
+        eq_filter = resource_dir / "filters" / "eq_number.lua"
+        if eq_filter.exists():
+            args.extend(["--lua-filter", str(eq_filter)])
         return args
 
     def _template(self, cfg: LogicalConfig, resource_dir: Path) -> List[str]:
@@ -288,6 +300,10 @@ class TypstAdapter(EngineAdapter):
             # typst_crossref_tag.lua が、参照箇所を位置や書式に頼らず特定できる
             # (副次的に PDF 内リンクとしても機能する)
             args.extend(["-M", "linkReferences=true"])
+        # typst_crossref_tag.lua は crossref の番号を \tag へ集約するだけでなく、
+        # eq_numbers 有効時の通し番号採番 (LaTeX の equation カウンタの再現) も担う。
+        # そのため crossref を切っていても採番が要るなら適用する。
+        if cfg.pandoc_crossref or cfg.eq_numbers:
             crossref_tag = resource_dir / "filters" / "typst_crossref_tag.lua"
             if crossref_tag.exists():
                 args.extend(["--lua-filter", str(crossref_tag)])

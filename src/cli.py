@@ -181,6 +181,8 @@ def _apply_overrides(cfg: LogicalConfig, args: argparse.Namespace) -> LogicalCon
         cfg.citeproc = args.citeproc
     if args.crossref is not None:
         cfg.pandoc_crossref = args.crossref
+    if args.eq_numbers is not None:
+        cfg.eq_numbers = args.eq_numbers
     if args.wrap_preserve is not None:
         cfg.wrap_preserve = args.wrap_preserve
     if args.documentclass is not None:
@@ -212,7 +214,8 @@ def _print_config(cfg: LogicalConfig) -> None:
         ("footskip", cfg.footskip), ("linestretch", cfg.linestretch),
         ("toc", cfg.toc), ("number_sections", cfg.number_sections),
         ("standalone", cfg.standalone), ("citeproc", cfg.citeproc),
-        ("pandoc_crossref", cfg.pandoc_crossref), ("wrap_preserve", cfg.wrap_preserve),
+        ("pandoc_crossref", cfg.pandoc_crossref), ("eq_numbers", cfg.eq_numbers),
+        ("wrap_preserve", cfg.wrap_preserve),
         ("markdown_extensions", cfg.markdown_extensions),
         ("documentclass", cfg.documentclass), ("classoption", cfg.classoption),
         ("template_file", cfg.template_file), ("lua_filter", cfg.lua_filter),
@@ -356,6 +359,8 @@ def _add_override_flags(p: argparse.ArgumentParser) -> None:
     g.add_argument("--citeproc", action=argparse.BooleanOptionalAction, default=None)
     g.add_argument("--crossref", action=argparse.BooleanOptionalAction, default=None,
                    help="pandoc-crossref フィルタ")
+    g.add_argument("--eq-numbers", action=argparse.BooleanOptionalAction, default=None,
+                   help="display 数式に通し番号を振る (\\nonumber を書いた式は除外)")
     g.add_argument("--wrap-preserve", action=argparse.BooleanOptionalAction, default=None)
     g.add_argument("-V", "--var", action="append", metavar="KEY=VAL",
                    help="pandoc 変数を追加 (繰り返し可)")

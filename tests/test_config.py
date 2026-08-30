@@ -83,3 +83,12 @@ def test_legacy_v1_profile_loadable(tmp_path, monkeypatch):
     assert not cfg.is_v2_profile(loaded)
     assert "extra_args" in loaded
     assert loaded["output_format"] == "pdf"
+
+
+def test_eq_numbers_from_v2_profile(tmp_path, monkeypatch):
+    """プロファイルの eq_numbers が LogicalConfig まで届く."""
+    cfg = _force_isolated_profile_dir(tmp_path, monkeypatch)
+    data = {"schema_version": 2, "engine": "typst", "eq_numbers": True}
+    assert cfg.profile_to_logical_config(data).eq_numbers is True
+    # 省略時は採番しない (既存プロファイルの出力を変えない)
+    assert cfg.profile_to_logical_config({"schema_version": 2}).eq_numbers is False

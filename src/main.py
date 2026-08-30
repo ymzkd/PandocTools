@@ -260,6 +260,9 @@ class MainWindow(QMainWindow):
             standalone=self.ui.standalone.isChecked(),
             citeproc=self.ui.citeproc.isChecked(),
             pandoc_crossref=self.ui.pandoc_crossref.isChecked(),
+            # eq_numbers は後から追加した項目。属性が無い古い UI でも動くようにする
+            eq_numbers=(self.ui.eq_numbers.isChecked()
+                        if hasattr(self.ui, "eq_numbers") else False),
             wrap_preserve=self.ui.wrap_preserve.isChecked(),
             markdown_extensions=self.ui.markdown_extensions.text().strip() or None,
             lua_filter=resolved_lua,
@@ -496,6 +499,7 @@ class MainWindow(QMainWindow):
         self.ui.standalone.setChecked(True)
         self.ui.citeproc.setChecked(True)
         self.ui.pandoc_crossref.setChecked(True)
+        self.ui.eq_numbers.setChecked(False)
 
         # LaTeX 詳細
         self.ui.document_class.setText("bxjsarticle")
@@ -562,6 +566,7 @@ class MainWindow(QMainWindow):
         set_check("standalone", "standalone")
         set_check("citeproc", "citeproc")
         set_check("pandoc_crossref", "pandoc_crossref")
+        set_check("eq_numbers", "eq_numbers")
 
         # LaTeX 詳細
         set_text("document_class", "documentclass")
@@ -743,6 +748,8 @@ class MainWindow(QMainWindow):
             profile_data["citeproc"] = False
         if not cfg.pandoc_crossref:
             profile_data["pandoc_crossref"] = False
+        if cfg.eq_numbers:
+            profile_data["eq_numbers"] = True
         if not cfg.wrap_preserve:
             profile_data["wrap_preserve"] = False
 

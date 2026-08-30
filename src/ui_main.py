@@ -288,6 +288,9 @@ class Ui_MainWindow:
         self.pandoc_crossref.setChecked(True)
         checkbox_layout.addWidget(self.pandoc_crossref, 2, 1)
 
+        self.eq_numbers = QCheckBox("式番号を振る (\\nonumber で個別に抑制)")
+        checkbox_layout.addWidget(self.eq_numbers, 3, 0)
+
         common_outer.addWidget(checkbox_group)
 
         # --- フィルター / テンプレート ---
