@@ -333,6 +333,14 @@ exe はこれらのフォルダを自分と同じ場所から読み込みます�
 ### SVG の図が PDF に出ない・警告が出る場合
 - rsvg-convert の取得に失敗している可能性があります。開発環境や exe ビルドでは `python scripts/fetch_rsvg_convert.py --force` で取り直せます。`uv tool` で入れた CLI は `uv tool install --editable . --reinstall` で入れ直してください
 - SVG 内の日本語テキストのフォントが総称（`sans-serif` 等）や未指定だと、rsvg-convert では韓国語・中国語フォントが混ざり、typst 0.13 では文字によって変換が終わらなくなることがあります。`font-family="Yu Gothic"` のように日本語フォントを明示してください
+- このアプリを通さずに pandoc + typst で SVG を含む文書を PDF にして `unknown image format` で失敗する場合：rsvg-convert が PATH にあると pandoc は SVG を PDF に変換してから typst に渡しますが、typst 0.13 以前は PDF を画像として読めません。typst を 0.14 以降に更新してください（`winget upgrade Typst.Typst`）。このアプリ経由では SVG をそのまま typst に渡すので起きません
+
+### `uv sync` が「プロセスはファイルにアクセスできません (os error 32)」で失敗する場合
+- `.venv` が Dropbox などの同期フォルダの中にあると、同期ソフトがファイルを掴んで uv のインストール処理とぶつかります（rsvg-convert のような大きなファイルを入れるときに起きやすい）
+- `.venv` を同期の対象から外してください。Dropbox なら PowerShell で `Set-Content -Path .venv -Stream com.dropbox.ignored -Value 1`（`.venv` は PC ごとに作り直すものなので、同期しない方が別の PC で壊れた `.venv` が届く問題も防げます）
+
+### `uv tool install` が `Executable already exists: rsvg-convert` で止まる場合
+- `~/.local/bin` に別の方法で入れた rsvg-convert があり、インストール全体が中断しています。そのファイルを消すか、`uv tool install --editable . --force` で置き換えてください
 
 ### パフォーマンス問題
 - 大きなファイルの変換には時間がかかります

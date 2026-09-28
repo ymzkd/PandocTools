@@ -118,20 +118,30 @@ rsvg-convert を別途インストールしたり、PATH を手で設定した�
 
 バイナリはリポジトリに入れず、`scripts/fetch_rsvg_convert.py` が実行環境の
 OS / CPU に合う版をダウンロードし、sha256 を照合して `src/bin/` に置く。
-取得済みの版は `src/bin/rsvg-convert.version` で判定し、同じなら取り直さない。
+取得済みかは `src/bin/rsvg-convert.version` (版と OS / CPU 種別) で判定し、同じなら
+取り直さない (Dropbox で共有する別 CPU の PC が別物を使い回さないよう種別も記録する)。
 
 - pip install / uv tool install: `hatch_build.py` (hatchling のビルドフック) が wheel
   ビルド時に取得し、wheel の scripts 区分に入れる。`pandoctools` / `pandoc-gui` と
   同じ環境の Scripts (bin) に入るので、他の pip のコマンドと同じくどこからでも使える
   (uv tool install なら `~/.local/bin`)。wheel はプラットフォーム固有になる。
   取得に失敗してもインストールは続行する (SVG 変換は inkscape / typst にフォールバック)。
+  uv は `[tool.uv] cache-keys` の変化で本体を作り直す (取得スクリプトの版の更新や、
+  取得し損ねた後に手動で取得した `rsvg-convert.version` を拾う)。
 - exe ビルド: `build.bat` が取得してから `dist/bin/` へコピーする
-  (exe の隣の `bin/` を参照する)。
+  (exe の隣の `bin/` を参照する)。取得に失敗したら既存の `dist/` を消す前に止まる。
 - 開発環境 (`python src/main.py`): 一度 `python scripts/fetch_rsvg_convert.py` を実行する。
-- アプリ側の補い: 起動時に `common.use_bundled_tools()` が自プロセスの PATH を整える
-  (OS の PATH 設定は変えない)。exe 版・開発時の `bin/` は先頭に、pip / uv の Scripts は
-  PATH に無いとき (venv を activate せずに起動した場合など) だけ末尾に足す。
-  Scripts の場所は wheel の RECORD から求める (`common.installed_scripts_dir()`)。
+- アプリ側の補い: 起動時に `common.use_bundled_tools()` が次を行う (OS の PATH 設定は変えない)。
+  - `inline_svg.lua` に同梱版の絶対パスを環境変数 `PANDOCTOOLS_RSVG_CONVERT` で渡す。
+    PATH の並びによらず、古い rsvg-convert (choco の 2.40 等) があっても同梱版で描画を揃える。
+  - pandoc 本体向けに自プロセスの PATH にも足す。exe 版・開発時の `bin/` (実物があるとき
+    だけ。通常の pip インストールでは site-packages/bin になり無関係なものを拾いうる) は
+    先頭に、pip / uv の Scripts は python 等も入っているので PATH に無いとき
+    (venv を activate せずに起動した場合など) だけ末尾に足す。
+    Scripts の場所は wheel の RECORD から求める (`common.installed_scripts_dir()`)。
+- `.venv` を Dropbox 内に置くと、uv が scripts 区分の大きなファイルを入れた直後に
+  Dropbox が作業フォルダを掴み、`uv sync` が os error 32 で失敗する (実測)。
+  `.venv` は同期対象から外す (README のトラブルシューティング参照)。
 - 出所: [unpins/rsvg-convert](https://github.com/unpins/rsvg-convert) の
   `v2.62.3-1` リリース (librsvg 2.62.3 / cairo 1.18.4 / pango 1.57.1 を静的リンクした
   単一バイナリ。Windows x64 / macOS / Linux 向けがある)。librsvg は LGPL-2.1-or-later。

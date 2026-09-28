@@ -17,8 +17,13 @@ pandoctools = "cli:main"
 pandoc-gui = "main:main"
 
 [build-system]
-# zstandard は rsvg-convert の配布物 (.zst) の展開用。3.14 以降は標準ライブラリで足りる
-requires = ["hatchling", "zstandard; python_version < '3.14'"]
+# hatchling 1.24.1: ビルドフックの shared_scripts (1.24.0) とその実行権限の保持
+# zstandard: rsvg-convert の配布物 (.zst) の展開用。wheel の無い armv7l / riscv64 では
+#   入れない (ビルド環境の準備ごと失敗させないため。取得は警告だけで続行する)
+requires = [
+    "hatchling>=1.24.1",
+    "zstandard; platform_machine != 'armv7l' and platform_machine != 'riscv64'",
+]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.hooks.custom]
@@ -37,7 +42,15 @@ dev-dependencies = [
     "pyinstaller>=6.0.0",
     "pytest>=7",
     # scripts/fetch_rsvg_convert.py を直接実行するとき用 (build.bat など)
-    "zstandard; python_version < '3.14'",
+    "zstandard; platform_machine != 'armv7l' and platform_machine != 'riscv64'",
+]
+# 本体を作り直す (ビルドフックで rsvg-convert を取り直す) きっかけ。既定の
+# pyproject.toml に加え、取得する版の更新と、取得し損ねた後の手動取得 (版の記録) を拾う
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "hatch_build.py" },
+    { file = "scripts/fetch_rsvg_convert.py" },
+    { file = "src/bin/rsvg-convert.version" },
 ]
 
 [tool.pytest.ini_options]

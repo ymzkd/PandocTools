@@ -1,13 +1,20 @@
 @echo off
 echo Building PandocTools with PyInstaller...
 
+REM Fetch rsvg-convert into src\bin (skipped if the pinned version is already there).
+REM Stop before touching the previous dist: a dist without it would silently lose SVG support.
+python scripts\fetch_rsvg_convert.py
+if errorlevel 1 (
+    echo.
+    echo Build failed! Could not fetch rsvg-convert.
+    echo Check the network connection and that zstandard is installed ^(uv sync^).
+    exit /b 1
+)
+
 REM Clean previous build
 if exist "dist" rmdir /s /q "dist"
 if exist "build" rmdir /s /q "build"
 if exist "*.spec" del /q "*.spec"
-
-REM Fetch rsvg-convert into src\bin (skipped if the pinned version is already there)
-python scripts\fetch_rsvg_convert.py || echo Warning: Could not fetch rsvg-convert
 
 REM Build executable (without bundling resources)
 python -m PyInstaller ^

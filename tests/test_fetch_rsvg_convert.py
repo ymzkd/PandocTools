@@ -32,6 +32,32 @@ def test_every_target_has_hash():
         assert len(fetcher.SHA256[kind]) == 64
 
 
+needs_target = pytest.mark.skipif(fetcher.target() is None,
+                                  reason="この環境向けの配布が無い")
+
+
+@needs_target
+def test_refetch_when_kind_differs(tmp_path, monkeypatch):
+    # 同じ版でも別 CPU 向けを取得済みなら使い回さない (ダウンロードに進む)
+    (tmp_path / fetcher.exe_name()).write_bytes(b"other-arch")
+    (tmp_path / "rsvg-convert.version").write_text(f"{fetcher.VERSION} some-other-kind\n")
+
+    def no_network(*args, **kwargs):
+        raise OSError("download attempted")
+    monkeypatch.setattr(fetcher.urllib.request, "urlopen", no_network)
+    with pytest.raises(OSError, match="download attempted"):
+        fetcher.fetch(tmp_path)
+
+
+@needs_target
+def test_skip_when_same_version_and_kind(tmp_path, monkeypatch):
+    exe = tmp_path / fetcher.exe_name()
+    exe.write_bytes(b"ok")
+    (tmp_path / "rsvg-convert.version").write_text(f"{fetcher.VERSION} {fetcher.target()}\n")
+    monkeypatch.setattr(fetcher.urllib.request, "urlopen", None)
+    assert fetcher.fetch(tmp_path) == exe
+
+
 def test_exe_name():
     assert fetcher.exe_name("win32") == "rsvg-convert.exe"
     assert fetcher.exe_name("linux") == "rsvg-convert"

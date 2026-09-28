@@ -33,13 +33,28 @@ local IS_LATEX = (FORMAT == "latex" or FORMAT == "beamer")
 
 -- --- ファイル / キャッシュ ---------------------------------------------------
 
+-- os.getenv は Windows では ANSI (CP932 等) のバイト列を返すため、UTF-8 として扱う
+-- pandoc.system の関数に渡すとパスが化ける (日本語のユーザー名の %TEMP% など)。
+-- pandoc.system.environment() は Unicode で返すので、ある版ではそちらを使う。
+local env_exact, env_upper = nil, nil
+
+local function getenv(name)
+  if not system.environment then return os.getenv(name) end
+  if not env_exact then
+    env_exact, env_upper = system.environment(), {}
+    -- Windows の環境変数名は大文字小文字を区別しない (Path / PATH など)
+    for k, v in pairs(env_exact) do env_upper[k:upper()] = v end
+  end
+  return env_exact[name] or env_upper[name:upper()]
+end
+
 local cached_dir = nil
 
 local function cache_dir()
   if cached_dir then return cached_dir end
-  local dir = os.getenv("PANDOCTOOLS_SVG_DIR")
+  local dir = getenv("PANDOCTOOLS_SVG_DIR")
   if not dir or dir == "" then
-    local tmp = os.getenv("TMPDIR") or os.getenv("TEMP") or os.getenv("TMP") or "/tmp"
+    local tmp = getenv("TMPDIR") or getenv("TEMP") or getenv("TMP") or "/tmp"
     dir = tmp .. "/pandoctools-svg"
   end
   dir = dir:gsub("\\", "/")
@@ -73,12 +88,30 @@ local function remove_file(path)
   if system.remove then pcall(system.remove, path) else os.remove(path) end
 end
 
--- 参照先の SVG を読む。pandoc 本体と同じく --resource-path を順に探すので、
--- 結合変換で別フォルダの md から参照された画像も見つかる。
-local function fetch(src)
+-- 参照先の SVG を読む。
+-- まず文字どおりのローカルパスとして読む。mediabag.fetch は URI の規則でパスを
+-- 解釈し、'%41' のような並びをデコードしてしまうため、そうした名前のファイルや
+-- キャッシュを読めない。見つからなければ pandoc 本体と同じ規則で探す
+-- (--resource-path を順に探すので、結合変換で別フォルダの md から参照された画像も
+-- 見つかる。URL や data URI もここで読める)。
+local function read_svg(src)
+  if system.read_file then
+    local ok, contents = pcall(system.read_file, src)
+    if ok then return contents end
+  end
   local ok, _, contents = pcall(pandoc.mediabag.fetch, src)
   if ok then return contents end
   return nil
+end
+
+-- SVG への参照か。拡張子は、そのままの形とクエリ ('?') / フラグメント ('#') を
+-- 除いた形の両方で見る (badge.svg?style=flat のような URL も拾うため)。
+-- 取りこぼした SVG は pandoc 本体に渡り、PATH に rsvg-convert があると PDF に
+-- 変換されて、PDF を画像として読めない typst (0.13) が変換ごと失敗する。
+local function is_svg(src)
+  if src:match("^data:image/svg%+xml[;,]") then return true end
+  local lower = src:lower()
+  return lower:match("%.svg$") ~= nil or lower:gsub("[?#].*$", ""):match("%.svg$") ~= nil
 end
 
 -- --- SVG -> PDF 変換 (LaTeX 経路) --------------------------------------------
@@ -87,9 +120,17 @@ local function run(cmd, args)
   return (pcall(pandoc.pipe, cmd, args, ""))
 end
 
+-- アプリ (common.use_bundled_tools) は同梱の rsvg-convert の絶対パスを渡す。
+-- PATH の並びによらず同梱版で描画を揃えるため。単体で使われたときは PATH から探す。
+local function rsvg_convert()
+  local path = getenv("PANDOCTOOLS_RSVG_CONVERT")
+  if path and path ~= "" then return path end
+  return "rsvg-convert"
+end
+
 local converters = {
   function(svg, pdf)
-    return run("rsvg-convert", { "-f", "pdf", "-o", pdf, svg })
+    return run(rsvg_convert(), { "-f", "pdf", "-o", pdf, svg })
   end,
   function(svg, pdf)
     return run("inkscape", { "--export-type=pdf", "--export-filename=" .. pdf, svg })
@@ -272,8 +313,8 @@ end
 local warned_missing = {}
 
 local function handle_image(img)
-  if not img.src:lower():match("%.svg$") then return nil end
-  local data = fetch(img.src)
+  if not is_svg(img.src) then return nil end
+  local data = read_svg(img.src)
   if not data then
     if not warned_missing[img.src] then
       warned_missing[img.src] = true

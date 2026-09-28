@@ -68,25 +68,29 @@ def exe_name(plat: str = sys.platform) -> str:
 
 def _decompress(data: bytes) -> bytes:
     try:
-        from compression import zstd  # Python 3.14+
-    except ImportError:
         import zstandard
-        return zstandard.ZstdDecompressor().decompressobj().decompress(data)
-    return zstd.decompress(data)
+    except ImportError:
+        # zstandard の wheel が無い環境 (armv7l / riscv64) 向け。Python 3.14+ のみ
+        from compression import zstd
+        return zstd.decompress(data)
+    return zstandard.ZstdDecompressor().decompressobj().decompress(data)
 
 
 def fetch(dest: Path = DEFAULT_DEST, force: bool = False) -> Optional[Path]:
     """rsvg-convert を dest に置き、そのパスを返す。配布の無い環境では None.
 
-    同じ版を取得済みなら何もしない (dest/rsvg-convert.version で判定)。
-    版の記録は本体を書き終えてから残すので、途中で失敗しても次回は取り直す。
+    同じ版・同じ種別 (OS / CPU) を取得済みなら何もしない (dest/rsvg-convert.version
+    で判定)。種別も記録するのは、Dropbox などでフォルダを共有する別 CPU の PC
+    (Intel Mac と Apple Silicon Mac など) が同じファイル名の別物を使い回さないため。
+    記録は本体を書き終えてから残すので、途中で失敗しても次回は取り直す。
     """
     kind = target()
     if kind is None:
         return None
     exe = dest / exe_name()
     stamp = dest / "rsvg-convert.version"
-    if not force and exe.exists() and stamp.exists() and stamp.read_text().strip() == VERSION:
+    fetched = f"{VERSION} {kind}"
+    if not force and exe.exists() and stamp.exists() and stamp.read_text().strip() == fetched:
         return exe
 
     with urllib.request.urlopen(URL.format(version=VERSION, kind=kind), timeout=60) as r:
@@ -99,7 +103,7 @@ def fetch(dest: Path = DEFAULT_DEST, force: bool = False) -> Optional[Path]:
     stamp.unlink(missing_ok=True)
     exe.write_bytes(_decompress(data))
     exe.chmod(0o755)
-    stamp.write_text(VERSION + "\n")
+    stamp.write_text(fetched + "\n")
     return exe
 
 
