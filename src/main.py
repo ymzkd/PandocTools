@@ -15,7 +15,7 @@ from PyQt6.QtCore import QTimer, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QCloseEvent
 
 # 共通モジュールから定数をインポート
-from common import BASE_DIR, RESOURCE_DIR
+from common import BASE_DIR, RESOURCE_DIR, use_bundled_tools
 
 from ui_main import Ui_MainWindow
 from pandoc_process import PandocWorker
@@ -1123,6 +1123,7 @@ class MainWindow(QMainWindow):
 
 def main():
     """メイン関数"""
+    use_bundled_tools()
     app = QApplication(sys.argv)
     app.setApplicationName("Pandoc GUI Converter")
     app.setOrganizationName("PandocGUI")
