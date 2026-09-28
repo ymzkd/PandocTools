@@ -48,21 +48,19 @@ local function cache_dir()
   return dir
 end
 
+-- Lua 標準の io.open / os.remove は Windows では ANSI API を通るため、日本語を含む
+-- パス (例: 「RC柱断面検討」フォルダ) を開けない。pandoc.system の関数は Unicode
+-- パスを扱えるので、ある版 (pandoc 3.8 で確認) ではそちらを使う。
+
 local function file_exists(path)
+  if system.times then return (pcall(system.times, path)) end
   local f = io.open(path, "rb")
   if f then f:close() return true end
   return false
 end
 
-local function read_file(path)
-  local f = io.open(path, "rb")
-  if not f then return nil end
-  local contents = f:read("*a")
-  f:close()
-  return contents
-end
-
 local function write_file(path, contents)
+  if system.write_file then return (pcall(system.write_file, path, contents)) end
   local f = io.open(path, "wb")
   if not f then return false end
   f:write(contents)
@@ -70,15 +68,16 @@ local function write_file(path, contents)
   return true
 end
 
-local function to_slash(path)
-  return (path:gsub("\\", "/"))
+local function remove_file(path)
+  if system.remove then pcall(system.remove, path) else os.remove(path) end
 end
 
-local function absolute(path)
-  local p = to_slash(path)
-  if p:match("^%a:/") or p:match("^/") then return p end
-  local cwd = to_slash(system.get_working_directory()):gsub("/+$", "")
-  return cwd .. "/" .. p
+-- 参照先の SVG を読む。pandoc 本体と同じく --resource-path を順に探すので、
+-- 結合変換で別フォルダの md から参照された画像も見つかる。
+local function fetch(src)
+  local ok, _, contents = pcall(pandoc.mediabag.fetch, src)
+  if ok then return contents end
+  return nil
 end
 
 -- --- SVG -> PDF 変換 (LaTeX 経路) --------------------------------------------
@@ -102,7 +101,7 @@ local converters = {
       .. '#image("' .. base .. '")\n'
     if not write_file(wrapper, body) then return false end
     local ok = run("typst", { "compile", "--root", cache_dir(), wrapper, pdf })
-    os.remove(wrapper)
+    remove_file(wrapper)
     return ok
   end,
 }
@@ -273,24 +272,24 @@ local warned_missing = {}
 
 local function handle_image(img)
   if not img.src:lower():match("%.svg$") then return nil end
-  local path = absolute(img.src)
-  if not file_exists(path) then
-    if not warned_missing[path] then
-      warned_missing[path] = true
+  local data = fetch(img.src)
+  if not data then
+    if not warned_missing[img.src] then
+      warned_missing[img.src] = true
       io.stderr:write("[WARNING] inline_svg.lua: SVG が見つかりません: " .. img.src .. "\n")
     end
     return nil
   end
 
   if IS_TYPST then
-    local data = read_file(path)
-    if not data then return nil end
     local opts = {}
     local w = typst_length(img.attributes["width"])
     local h = typst_length(img.attributes["height"])
     if w then opts[#opts + 1] = "width: " .. w end
     if h then opts[#opts + 1] = "height: " .. h end
-    -- Image のまま渡すと pandoc が rsvg-convert を探しに行くので raw で埋める。
+    -- Image のまま渡すと、pandoc は PATH に rsvg-convert があれば SVG を PDF に
+    -- 変換して image("...pdf") を出力し、PDF を読めない typst (0.13) が
+    -- "unknown image format" で止まる。そのため raw で埋める。
     -- パス参照だと typst の sandbox (root 外を読めない) に阻まれるため、
     -- SVG ソースを bytes() として .typ に直接埋め込む。
     local args = 'bytes("' .. typst_string(data) .. '"), format: "svg"'
@@ -302,8 +301,6 @@ local function handle_image(img)
 
   -- LaTeX: \includegraphics が読める PDF に変換して差し替える。
   -- 変換結果はキャッシュ側に置き、参照元 SVG の隣は汚さない。
-  local data = read_file(path)
-  if not data then return nil end
   local pdf = svg_to_pdf(cache_svg(data))
   if not pdf then return nil end
   img.src = pdf
