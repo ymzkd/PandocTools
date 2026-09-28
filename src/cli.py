@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import List, Optional
 
 # src/ をスクリプトディレクトリとして実行する前提 (python src/cli.py ...)
-from common import RESOURCE_DIR
+from common import RESOURCE_DIR, use_bundled_tools
 from engines import LogicalConfig, get_adapter, is_typst_mode
 from config import (
     get_available_profiles,
@@ -409,6 +409,7 @@ def _setup_utf8() -> None:
 
 def main(argv: Optional[List[str]] = None) -> int:
     _setup_utf8()
+    use_bundled_tools()
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "command", None):

@@ -16,8 +16,9 @@ Markdown 中の SVG を typst / LaTeX どちらの PDF 経路でも図として�
   typst : #image("....svg") を RawInline("typst") として直接埋める。
           typst は SVG をネイティブに描画できるので外部ツールは不要。
   latex : SVG を PDF へ変換して Image の src を差し替える。
-          変換器は rsvg-convert -> inkscape -> typst の順に自動検出する
-          (typst は本アプリの既定エンジンなので通常は必ず存在する)。
+          変換器は rsvg-convert -> inkscape -> typst の順に自動検出する。
+          rsvg-convert は本アプリのインストール時に同じ環境へ入る
+          (exe 版は bin/ に同梱) ので、アプリ経由なら通常はそれが使われる。
   それ以外の出力形式 (html / docx 等) では何もしない。
 
 生成物は内容の SHA1 を名前にしたキャッシュに置くので、何度変換しても増えない。

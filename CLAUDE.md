@@ -9,24 +9,26 @@ PandocTools is a Windows GUI application for Pandoc document conversion, built w
 ## Development Environment Setup
 
 ### Prerequisites
-- Python 3.9+
-- Pandoc (installed separately)
+- Python 3.9+ (uv provides one if missing)
 - uv package manager
+- Installed separately (not pip-installable): Pandoc, Typst (default PDF engine),
+  pandoc-crossref (crossref is on by default; must match the Pandoc version),
+  TeX Live / MiKTeX only for the xelatex engine
+- rsvg-convert is NOT a prerequisite: `uv sync` fetches it (see 同梱 rsvg-convert)
 
 ### Setup Commands
 ```powershell
-# Create virtual environment
-uv venv
+# Create .venv and install deps (uv.lock), dev tools (pyinstaller, pytest, zstandard),
+# the project itself (editable) and rsvg-convert (fetched by hatch_build.py)
+uv sync
 
 # Activate virtual environment
 .\.venv\Scripts\Activate.ps1
-
-# Install dependencies
-uv pip install PyQt6 pypandoc pyyaml
-
-# For building executables
-uv pip install pyinstaller
 ```
+
+Prefer `uv sync` over `pip install -e .`: with an Anaconda-based Python, plain pip pulls the
+latest PyQt6, which failed to load (`DLL load failed`, Anaconda's older VC++ runtime);
+the PyQt6 pinned in `uv.lock` works.
 
 ### Running the Application
 ```powershell
@@ -34,9 +36,10 @@ python src/main.py
 ```
 
 ### Building Executable
-```powershell
-python -m PyInstaller --name "Pandoc GUI Converter" --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" --add-data "src/templates;templates" src/main.py
-```
+Run `.\build.bat` in the activated venv. It fetches rsvg-convert, builds the exe with
+PyInstaller and copies `bin/`, `filters/`, `templates/`, `profiles/` into `dist/` next to
+the exe (the frozen app reads them from the exe's directory, not from the bundle).
+Distribute the whole `dist/` folder.
 
 ## Architecture
 
@@ -77,6 +80,8 @@ src/
 │   ├── typst_tag.lua        # Restore \tag equation numbers (typst)
 │   ├── typst_crossref_tag.lua # Map crossref numbers onto \tag (typst)
 │   └── eq_number.lua        # Wrap display math in equation (LaTeX only)
+├── bin/                     # Fetched, not in git (scripts/fetch_rsvg_convert.py)
+│   └── rsvg-convert.exe     # SVG converter for exe build / dev (pip installs it into Scripts)
 └── templates/
     ├── latex_header_base.tex # LaTeX header with MaxMatrixCols
     └── default.csl          # Default citation style
@@ -104,6 +109,39 @@ The application always applies these base arguments:
   (`PANDOCTOOLS_SVG_DIR` で変更可)。
 - `--columns=999` (engines.py `DEFAULT_COLUMNS`): prevents Pandoc from fixing pipe-table column widths from the separator-row dash counts, which would otherwise wrap cells and produce uneven row heights. Overridden if the user supplies `--columns` in custom args.
 - User-configurable options via GUI tabs
+
+### 同梱 rsvg-convert
+
+pandoc 本体 (docx の PNG 代替画像など) と `inline_svg.lua` の両方が rsvg-convert を
+PATH から探す。インストール方法に応じて次の場所に入るので、Inkscape や
+rsvg-convert を別途インストールしたり、PATH を手で設定したりする必要はない。
+
+バイナリはリポジトリに入れず、`scripts/fetch_rsvg_convert.py` が実行環境の
+OS / CPU に合う版をダウンロードし、sha256 を照合して `src/bin/` に置く。
+取得済みの版は `src/bin/rsvg-convert.version` で判定し、同じなら取り直さない。
+
+- pip install / uv tool install: `hatch_build.py` (hatchling のビルドフック) が wheel
+  ビルド時に取得し、wheel の scripts 区分に入れる。`pandoctools` / `pandoc-gui` と
+  同じ環境の Scripts (bin) に入るので、他の pip のコマンドと同じくどこからでも使える
+  (uv tool install なら `~/.local/bin`)。wheel はプラットフォーム固有になる。
+  取得に失敗してもインストールは続行する (SVG 変換は inkscape / typst にフォールバック)。
+- exe ビルド: `build.bat` が取得してから `dist/bin/` へコピーする
+  (exe の隣の `bin/` を参照する)。
+- 開発環境 (`python src/main.py`): 一度 `python scripts/fetch_rsvg_convert.py` を実行する。
+- アプリ側の補い: 起動時に `common.use_bundled_tools()` が自プロセスの PATH を整える
+  (OS の PATH 設定は変えない)。exe 版・開発時の `bin/` は先頭に、pip / uv の Scripts は
+  PATH に無いとき (venv を activate せずに起動した場合など) だけ末尾に足す。
+  Scripts の場所は wheel の RECORD から求める (`common.installed_scripts_dir()`)。
+- 出所: [unpins/rsvg-convert](https://github.com/unpins/rsvg-convert) の
+  `v2.62.3-1` リリース (librsvg 2.62.3 / cairo 1.18.4 / pango 1.57.1 を静的リンクした
+  単一バイナリ。Windows x64 / macOS / Linux 向けがある)。librsvg は LGPL-2.1-or-later。
+- 更新手順: `fetch_rsvg_convert.py` の `VERSION` と `SHA256` を、新しいリリースの
+  `*.sha256` の値に差し替え、`--force` で取り直す。
+- 既知の制約: SVG の `font-family` が `sans-serif` / `serif` の総称だけだと、
+  pango の Windows 用既定エイリアスにより日本語が GulimChe / SimSun 等の
+  韓国語・中国語フォントで描画される。日本語を含む SVG では
+  `font-family="Yu Gothic"` (Meiryo / BIZ UDPGothic / MS Gothic も可) のように
+  日本語フォントを明示する。
 
 ### 式番号 (eq_numbers)
 

@@ -190,5 +190,8 @@ Thumbs.db
 # SVG conversion intermediate files (Inkscape)
 **/svg-inkscape/
 
+# 取得した rsvg-convert (scripts/fetch_rsvg_convert.py が置く。リポジトリには含めない)
+src/bin/
+
 # サンプル/検証用のスクラッチ素材（リポジトリには含めない）
 sample/

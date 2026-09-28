@@ -19,24 +19,32 @@ Pandoc GUI Converterは、コマンドラインでのPandoc操作を直感的な
 
 ## 必要な環境
 
-- Python 3.9以上
-- Pandoc (別途インストールが必要)
-- TeX Live または MiKTeX (PDF/LaTeX出力時)
-- Typst (Optional, Typst出力時)
-- pandoc-crossref (Optional)
+pip / uv では入らないため、先にインストールしておくもの：
+
+| ツール | 必要なとき | インストール例（Windows） |
+| --- | --- | --- |
+| Pandoc | 常に | `winget install JohnMacFarlane.Pandoc` |
+| Typst | 常に（既定の PDF エンジン） | `winget install Typst.Typst` |
+| pandoc-crossref | 常に（相互参照が既定で有効） | [GitHub リリース](https://github.com/lierdakil/pandoc-crossref/releases)から Pandoc のバージョンに合うものを取得し、PATH の通った場所に置く |
+| uv | セットアップ時 | `winget install astral-sh.uv` |
+| TeX Live または MiKTeX | xelatex エンジンを使うときのみ | 各インストーラ |
+
+- Python 3.9 以上が必要です。無ければ uv が自動で用意します。
+- SVG 変換用の **rsvg-convert は下記のセットアップで自動的に入ります**。Inkscape や rsvg-convert を別途インストールしたり、PATH を設定したりする必要はありません。
 
 ## インストール・実行方法
 
 ```powershell
-# uv をインストール
-pip install uv
-
-# 環境・パッケージセットアップ
+# 取得してセットアップ
+git clone <このリポジトリ>
+cd PandocTools
 uv sync
 
 # GUIアプリケーションの実行
 uv run src/main.py
 ```
+
+`uv sync` は、依存パッケージとこのアプリ本体に加えて、OS に合う rsvg-convert を GitHub（[unpins/rsvg-convert](https://github.com/unpins/rsvg-convert)）からダウンロードし、sha256 を照合してから `.venv` に入れます。初回はネット接続が必要です。取得できなくてもセットアップは止まらず、SVG は typst で代わりに変換されます。
 
 > `.venv` が壊れている場合（別マシンでの作成物がクラウド同期されたとき等）は、`.venv` を削除して `uv sync` で作り直してください。
 
@@ -52,7 +60,12 @@ GUIと同じプリセット（プロファイル）・変換ロジックを、�
 # 開発（editable）インストール
 uv tool install --editable .
 #   または pipx install -e .
+
+# 初回のみ: ~/.local/bin を PATH に追加
+uv tool update-shell
 ```
+
+`uv tool install` では `rsvg-convert` も `pandoctools` と同じ `~/.local/bin` に入ります。このアプリを通さずに pandoc を直接実行するときも、SVG の変換に使われます。
 
 ### 使い方
 
@@ -274,55 +287,34 @@ variables:
 
 スタンドアロンの実行ファイル（.exe）を作成して、Python環境がないPCでも動作させることができます。
 
-### 1. PyInstallerのインストール
+### 1. ビルド
 
 ```powershell
-# PyInstallerをインストール
-pip install pyinstaller
+uv sync                         # PyInstaller などビルド用のパッケージも入る
+.\.venv\Scripts\Activate.ps1    # build.bat は有効化した環境の python を使う
+.\build.bat
 ```
 
-### 2. 実行ファイルのビルド
+`build.bat` は rsvg-convert を取得し、PyInstaller で exe を作り、exe が参照するフォルダを `dist\` にコピーします。
 
-```powershell
-# 基本的な実行ファイル作成
-python -m PyInstaller --name pandoc-gui --onefile --noconsole --add-data "profiles;profiles" --add-data "src/filters;filters" --add-data "src/templates;templates" src/main.py
-
-# より詳細なオプション付き（推奨）
-python -m PyInstaller ^
-  --name "Pandoc GUI Converter" ^
-  --onefile ^
-  --noconsole ^
-  --add-data "profiles;profiles" ^
-  --add-data "src/filters;filters" ^
-  --add-data "src/templates;templates" ^
-  --icon=src/resources/icon.ico ^
-  --version-file=version_info.txt ^
-  --distpath=release ^
-  src/main.py
-```
-
-### 3. ビルドオプションの説明
-
-- `--onefile`: 単一の実行ファイルを作成
-- `--noconsole`: コンソールウィンドウを表示しない（GUIアプリの場合）
-- `--add-data "profiles;profiles"`: プロファイルフォルダを含める
-- `--add-data "src/filters;filters"`: 内蔵フィルターを含める
-- `--add-data "src/templates;templates"`: LaTeXヘッダーテンプレートを含める
-- `--icon`: アプリケーションアイコンを指定（オプション）
-- `--distpath`: 出力ディレクトリを指定
-
-### 4. 生成されるファイル
+### 2. 生成されるファイル
 
 ```
-release/
-└─ Pandoc GUI Converter.exe  # 実行ファイル（約30-50MB）
+dist/
+├─ Pandoc GUI Converter.exe  # 実行ファイル
+├─ bin/                      # rsvg-convert.exe（SVG 変換）
+├─ filters/                  # 内蔵 Lua フィルター
+├─ templates/                # LaTeX ヘッダ・CSL・Typst テンプレート
+└─ profiles/                 # プロファイル
 ```
 
-### 5. 配布方法
+exe はこれらのフォルダを自分と同じ場所から読み込みます。
 
-1. 生成された `.exe` ファイルを配布
-2. 配布先のPCに **Pandoc** がインストールされている必要があります
-3. **TeX Live** または **MiKTeX** が PDF 生成に必要です
+### 3. 配布方法
+
+1. `dist` フォルダを**丸ごと**配布します（exe 単体では動きません）
+2. 配布先の PC には **Pandoc**・**Typst**・**pandoc-crossref** が必要です（rsvg-convert は `bin\` に同梱済み）
+3. xelatex エンジンを使う場合は **TeX Live** または **MiKTeX** も必要です
 
 ## トラブルシューティング
 
@@ -333,6 +325,14 @@ release/
 ### 日本語PDF生成で文字化けする場合
 - XeLaTeXと日本語フォントが必要
 - TeX Live or MiKTeXのインストールを推奨
+
+### 起動時に PyQt6 が `DLL load failed` になる場合
+- Anaconda の Python で作った環境に `pip install -e .` すると起きることがあります（Anaconda 同梱の古い VC++ ランタイムと最新の PyQt6 が合わないため）
+- `uv sync` を使ってください（`uv.lock` で動作確認済みの PyQt6 が入ります）
+
+### SVG の図が PDF に出ない・警告が出る場合
+- rsvg-convert の取得に失敗している可能性があります。開発環境や exe ビルドでは `python scripts/fetch_rsvg_convert.py --force` で取り直せます。`uv tool` で入れた CLI は `uv tool install --editable . --reinstall` で入れ直してください
+- SVG 内の日本語テキストのフォントが総称（`sans-serif` 等）や未指定だと、rsvg-convert では韓国語・中国語フォントが混ざり、typst 0.13 では文字によって変換が終わらなくなることがあります。`font-family="Yu Gothic"` のように日本語フォントを明示してください
 
 ### パフォーマンス問題
 - 大きなファイルの変換には時間がかかります
@@ -360,8 +360,14 @@ pandoc-gui/
 │   ├─ defaults.py          # プロジェクトファイル（Pandoc defaults）処理
 │   ├─ filters/             # 内蔵Luaフィルター
 │   │   ├─ default_filter.lua   # LaTeX数式環境の処理（LaTeX系で常時適用）
+│   │   ├─ inline_svg.lua       # Markdown 内の SVG を PDF に載せる（両エンジン）
 │   │   └─ typst_tag.lua        # Typstで \tag 式番号を右寄せ復元
+│   ├─ bin/                 # rsvg-convert（セットアップ時に取得。git には含めない）
 │   └─ templates/           # LaTeXヘッダ・CSL・Typstテンプレート
+├─ scripts/
+│   └─ fetch_rsvg_convert.py # rsvg-convert の取得（版と sha256 を固定）
+├─ hatch_build.py           # インストール時に rsvg-convert を取得して同梱するビルドフック
+├─ build.bat                # exe ビルド
 └─ pyproject.toml           # プロジェクト設定（GUI/CLIのエントリポイント定義）
 ```
 

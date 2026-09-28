@@ -17,8 +17,12 @@ pandoctools = "cli:main"
 pandoc-gui = "main:main"
 
 [build-system]
-requires = ["hatchling"]
+# zstandard は rsvg-convert の配布物 (.zst) の展開用。3.14 以降は標準ライブラリで足りる
+requires = ["hatchling", "zstandard; python_version < '3.14'"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.hooks.custom]
+# wheel ビルド時に OS に合う rsvg-convert を取得し、環境の Scripts (bin) に入るよう同梱する (hatch_build.py)
 
 [tool.hatch.build.targets.wheel]
 # src/ 直下のフラットなモジュール (cli, common, engines, config ...) を
@@ -32,6 +36,8 @@ sources = ["src"]
 dev-dependencies = [
     "pyinstaller>=6.0.0",
     "pytest>=7",
+    # scripts/fetch_rsvg_convert.py を直接実行するとき用 (build.bat など)
+    "zstandard; python_version < '3.14'",
 ]
 
 [tool.pytest.ini_options]
