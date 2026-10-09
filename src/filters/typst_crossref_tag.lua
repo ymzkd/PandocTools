@@ -122,18 +122,18 @@ local function assign_number(el)
   end
   local text = el.text
 
+  local tag = text:match("\\tag%s*{(.-)}")
+  if tag and tag ~= "" then
+    -- 複数行の一部に \nonumber があっても、他の行の明示タグは保持する。
+    el.text = strip_crossref_number(text)
+    return el
+  end
+
   -- \nonumber は明示的な番号抑制。crossref が付けた番号も落とす。
   -- typst writer は \nonumber を受け付けて黙って捨てるが、typst_tag.lua が
   -- 数式本体を組み直す経路もあるのでここで取り除いておく。
   if text:find("\\nonumber", 1, true) then
     el.text = strip_crossref_number(text):gsub("\\nonumber%s*", "")
-    return el
-  end
-
-  local tag = text:match("\\tag%s*{(.-)}")
-  if tag and tag ~= "" then
-    -- 原文の番号を優先し、通し番号は消費しない (LaTeX の \tag と同じ挙動)
-    el.text = strip_crossref_number(text)
     return el
   end
 
